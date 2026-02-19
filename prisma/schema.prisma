@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite doesn't support enums; using String. For PostgreSQL, you could switch to native enums.
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  passwordHash String?
+  createdAt DateTime @default(now())
+
+  activityLogs        ActivityLog[]
+  uploadedMerchants   Merchant[]     @relation("UploadedBy")
+  lastUpdatedMerchants Merchant[]    @relation("LastUpdatedBy")
+}
+
+model Merchant {
+  id          String   @id @default(cuid())
+  name        String
+  category    String   @default("")
+  contactName String?
+  email       String?
+  phone       String?
+
+  sourceWebsite   String?
+  sourceFacebook  String?
+  sourceInstagram String?
+
+  submissionType  String @default("MERCHANT_SELECTED")
+  selectionMode   String @default("SELECTED_ONLY")
+  selectionConfirmed Boolean     @default(false)
+
+  shopifyStatus       String @default("NOT_STARTED")
+  shopifyVendorName   String?
+  shopifyCollection   String?
+  shopifyTags         String?
+  uploadedAt          DateTime?
+  uploadedById        String?
+
+  productsSubmittedCount   Int?
+  productsUploadedCount    Int     @default(0)
+  productsTargetCount      Int?
+  productsExtracted        Boolean @default(false)
+  productsSentForConfirmation Boolean @default(false)
+  merchantApprovedExtractedList Boolean @default(false)
+  approvedAt               DateTime?
+
+  variantsComplete   Boolean @default(false)
+  pricingAdded       Boolean @default(false)
+  inventoryAdded     Boolean @default(false)
+  skuAdded           Boolean @default(false)
+  imagesComplete     Boolean @default(false)
+  finalReviewed      Boolean @default(false)
+
+  lastUpdatedAt   DateTime  @default(now()) @updatedAt
+  lastUpdatedById String?
+
+  businessAddress  String?
+  warehouseAddress String?
+  returnAddress    String?
+  addressCountry   String?
+  addressState     String?
+  addressZip       String?
+  shopifyPhone     String?
+
+  uploadedBy      User?   @relation("UploadedBy", fields: [uploadedById], references: [id])
+  lastUpdatedBy   User?   @relation("LastUpdatedBy", fields: [lastUpdatedById], references: [id])
+
+  approvedProducts MerchantProductApproval[]
+  activityLogs     ActivityLog[]
+}
+
+model MerchantProductApproval {
+  id         String   @id @default(cuid())
+  merchantId String
+  productName String
+  productUrl  String?
+  createdAt  DateTime @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id         String      @id @default(cuid())
+  merchantId String
+  userId     String
+  type       String
+  message    String
+  createdAt  DateTime    @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Leads from Excel (Pililokal_Merchants_Cleaned.xlsx)
+model Lead {
+  id           String   @id @default(cuid())
+  sourceSheet  String
+  merchantName String   @default("")
+  category     String   @default("")
+  products     String?
+  email        String?
+  contact      String?
+  address      String?
+  statusNotes  String?
+  fb           String?
+  ig           String?
+  tiktok       String?
+  website      String?
+  encodedBy    String?
+  result       String?
+  callsUpdate  String?
+  followupEmail String?
+  reachViaSocmed String?
+  registeredName String?
+  contactPerson  String?
+  designation   String?
+  authorizedSignatory String?
+  // Derived / computed
+  country      String?
+  city         String?
+  socialScore  Int?
+  stage        String?
+  needsFollowup Boolean @default(false)
+  lastActivityDates String? // JSON array of date strings
+  importedAt   DateTime @default(now())
+}
