@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/auth";
 import { parseExcelWithBreakdown } from "@/lib/leads-data";
-import { importLeadsToDb, type LeadCreateInput } from "@/lib/leads-db";
+import { importLeadsToDb, updateLeadInDb, type LeadCreateInput } from "@/lib/leads-db";
 
 export async function importLeadsFromExcelAction(): Promise<
   { success: true; count: number; bySheet: Record<string, number> } | { success: false; error: string }
@@ -57,6 +57,38 @@ export async function importLeadsFromExcelAction(): Promise<
     return {
       success: false,
       error: err instanceof Error ? err.message : "Import failed",
+    };
+  }
+}
+
+export async function updateLeadAction(
+  leadId: string,
+  data: {
+    merchantName?: string;
+    category?: string;
+    email?: string;
+    contact?: string;
+    address?: string;
+    statusNotes?: string;
+    result?: string;
+    callsUpdate?: string;
+    country?: string;
+    [key: string]: string | undefined;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    await updateLeadInDb(leadId, data);
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/leads");
+    return { success: true };
+  } catch (err) {
+    console.error("Update lead failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Update failed",
     };
   }
 }

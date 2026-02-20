@@ -93,6 +93,12 @@ export function MerchantDetail({
               {!merchant.sourceWebsite && !merchant.sourceFacebook && !merchant.sourceInstagram && "—"}
             </div>
           </div>
+          {merchant.notes && (
+            <div className="mt-4 border-t pt-4">
+              <p className="text-sm font-medium text-muted-foreground">Notes</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{merchant.notes}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

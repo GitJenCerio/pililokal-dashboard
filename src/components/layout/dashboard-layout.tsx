@@ -47,18 +47,6 @@ export function DashboardLayout({
             <LineChart className="h-4 w-4" />
             Leads Pipeline
           </Link>
-          <Link
-            href="/dashboard/leads?country=PH"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            PH Leads
-          </Link>
-          <Link
-            href="/dashboard/leads?country=US"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            US Leads
-          </Link>
         </nav>
       </aside>
       <div className="flex flex-1 flex-col">

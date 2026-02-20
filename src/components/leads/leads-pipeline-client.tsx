@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,10 @@ import {
   Legend,
 } from "recharts";
 import type { LeadRow, SourceSheet } from "@/lib/leads-data";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { updateLeadAction } from "@/app/dashboard/leads/actions";
 import {
   Search,
   Facebook,
@@ -42,8 +47,45 @@ import {
   Mail,
   MapPin,
   User,
-  Info,
+  Pencil,
 } from "lucide-react";
+
+const BAR_DARK = "#3d2817";
+const BAR_LIGHT = "#e8b080";
+
+function interpolateColor(hex1: string, hex2: string, t: number): string {
+  const r1 = parseInt(hex1.slice(1, 3), 16), g1 = parseInt(hex1.slice(3, 5), 16), b1 = parseInt(hex1.slice(5, 7), 16);
+  const r2 = parseInt(hex2.slice(1, 3), 16), g2 = parseInt(hex2.slice(3, 5), 16), b2 = parseInt(hex2.slice(5, 7), 16);
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+function getBarColors(data: { count: number }[]): string[] {
+  if (data.length === 0) return [];
+  const counts = data.map((d) => d.count);
+  const min = Math.min(...counts);
+  const max = Math.max(...counts);
+  const range = max - min || 1;
+  return data.map((d) => {
+    const ratio = (d.count - min) / range;
+    return interpolateColor(BAR_LIGHT, BAR_DARK, ratio);
+  });
+}
+
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden
+    >
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+    </svg>
+  );
+}
 
 type LeadsData = import("@/lib/leads-db").LeadsDataResult;
 
@@ -58,15 +100,229 @@ const SHEET_OPTIONS: { value: string; label: string }[] = [
   { value: "Previous Clients", label: "Previous Clients" },
 ];
 
-const US_RESULT_COLORS: Record<string, string> = {
+const CATEGORY_OPTIONS = [
+  "Clothing & Wearables",
+  "Food & Gourmet Products",
+  "Home Décor & Handicrafts",
+  "Bags & Accessories",
+  "Candles & Home Fragrances",
+  "Stationery & Paper Products",
+  "Art & Figurines",
+  "Handwoven Textiles / Fabrics",
+  "Heritage / Multi-Product",
+  "Lifestyle",
+  "Liquor / Beverages",
+  "Miscellaneous / Specialty Products",
+  "Other",
+];
+
+const RESULT_CHART_COLORS: Record<string, string> = {
   Confirmed: "#22c55e",
   Interested: "#eab308",
   "replied but not yet confirmed": "#eab308",
+  "Interested / Replied": "#eab308",
   "No Response": "#ef4444",
   Declined: "#6b7280",
   "Closed or not Qualified": "#6b7280",
+  "Declined / Closed": "#6b7280",
+  "Sample Received": "#22c55e",
+  Contacted: "#3b82f6",
+  "New / Unknown": "#94a3b8",
   "(blank)": "#94a3b8",
 };
+
+function LeadEditForm({
+  lead,
+  onCancel,
+  onSaved,
+  saving,
+  setSaving,
+  error,
+  setError,
+}: {
+  lead: LeadRow & { id: string };
+  onCancel: () => void;
+  onSaved: (updated: LeadRow) => void;
+  saving: boolean;
+  setSaving: (v: boolean) => void;
+  error: string | null;
+  setError: (v: string | null) => void;
+}) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSaving(true);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const result = await updateLeadAction(lead.id, {
+      merchantName: (formData.get("merchantName") as string) || undefined,
+      category: (formData.get("category") as string) || undefined,
+      email: (formData.get("email") as string) || undefined,
+      contact: (formData.get("contact") as string) || undefined,
+      address: (formData.get("address") as string) || undefined,
+      fb: (formData.get("fb") as string) || undefined,
+      ig: (formData.get("ig") as string) || undefined,
+      tiktok: (formData.get("tiktok") as string) || undefined,
+      website: (formData.get("website") as string) || undefined,
+      statusNotes: (formData.get("statusNotes") as string) || undefined,
+      result: (formData.get("result") as string) || undefined,
+      callsUpdate: (formData.get("callsUpdate") as string) || undefined,
+      country: (formData.get("country") as string) || undefined,
+    });
+    setSaving(false);
+    if (result.success) {
+      onSaved({
+        ...lead,
+        merchantName: (formData.get("merchantName") as string) || lead.merchantName,
+        category: (formData.get("category") as string) || lead.category,
+        email: (formData.get("email") as string) ?? lead.email,
+        contact: (formData.get("contact") as string) ?? lead.contact,
+        address: (formData.get("address") as string) ?? lead.address,
+        fb: (formData.get("fb") as string) ?? lead.fb,
+        ig: (formData.get("ig") as string) ?? lead.ig,
+        tiktok: (formData.get("tiktok") as string) ?? lead.tiktok,
+        website: (formData.get("website") as string) ?? lead.website,
+        statusNotes: (formData.get("statusNotes") as string) ?? lead.statusNotes,
+        result: (formData.get("result") as string) ?? lead.result,
+        callsUpdate: (formData.get("callsUpdate") as string) ?? lead.callsUpdate,
+        country: ((formData.get("country") as string) || undefined) as "PH" | "US" | undefined,
+      });
+    } else {
+      setError(result.error ?? "Update failed");
+    }
+  }
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="rounded-md border border-destructive bg-destructive/10 p-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="merchantName">Merchant Name</Label>
+          <Input id="merchantName" name="merchantName" defaultValue={lead.merchantName} />
+        </div>
+        <div>
+          <Label htmlFor="category">Category</Label>
+          <select
+            id="category"
+            name="category"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            defaultValue={lead.category ?? ""}
+          >
+            <option value="">—</option>
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" defaultValue={lead.email} />
+        </div>
+        <div>
+          <Label htmlFor="contact">Contact / Phone</Label>
+          <Input id="contact" name="contact" defaultValue={lead.contact} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="address">Address</Label>
+          <Input id="address" name="address" defaultValue={lead.address} />
+        </div>
+        <div>
+          <Label htmlFor="country">Region (PH / US)</Label>
+          <select
+            id="country"
+            name="country"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            defaultValue={lead.country ?? ""}
+          >
+            <option value="">—</option>
+            <option value="PH">Philippines (PH)</option>
+            <option value="US">United States (US)</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="fb">Facebook</Label>
+          <Input id="fb" name="fb" type="url" defaultValue={lead.fb} placeholder="https://facebook.com/..." />
+        </div>
+        <div>
+          <Label htmlFor="ig">Instagram</Label>
+          <Input id="ig" name="ig" type="url" defaultValue={lead.ig} placeholder="https://instagram.com/..." />
+        </div>
+        <div>
+          <Label htmlFor="tiktok">TikTok</Label>
+          <Input id="tiktok" name="tiktok" type="url" defaultValue={lead.tiktok} placeholder="https://tiktok.com/..." />
+        </div>
+        <div>
+          <Label htmlFor="website">Website</Label>
+          <Input id="website" name="website" type="url" defaultValue={lead.website} placeholder="https://..." />
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="statusNotes">Status Notes</Label>
+        <Textarea
+          id="statusNotes"
+          name="statusNotes"
+          rows={3}
+          className="mt-1"
+          defaultValue={lead.statusNotes}
+        />
+      </div>
+      {(lead.sourceSheet === "US New Leads" ||
+        lead.sourceSheet === "US Interested Merchants" ||
+        lead.sourceSheet === "US Confirmed Merchants") && (
+        <div>
+          <Label htmlFor="result">Result</Label>
+          <select
+            id="result"
+            name="result"
+            className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            defaultValue={lead.result ?? ""}
+          >
+            <option value="">—</option>
+            <option value="Confirmed">Confirmed</option>
+            <option value="Interested">Interested</option>
+            <option value="No Response">No Response</option>
+            <option value="Declined">Declined</option>
+            <option value="Closed or not Qualified">Closed or not Qualified</option>
+          </select>
+        </div>
+      )}
+      <div>
+        <Label htmlFor="callsUpdate">Calls Update</Label>
+        <Textarea
+          id="callsUpdate"
+          name="callsUpdate"
+          rows={2}
+          className="mt-1"
+          defaultValue={lead.callsUpdate}
+        />
+      </div>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          disabled={saving}
+          className="bg-[#5e3c28] text-white hover:bg-[#4a2f20]"
+        >
+          {saving ? "Saving..." : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="border-[#5e3c28] text-[#5e3c28] hover:bg-[#5e3c28]/10"
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export function LeadsPipelineClient({
   data,
@@ -75,6 +331,7 @@ export function LeadsPipelineClient({
   data: LeadsData;
   defaultCountry?: string;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [sheetFilter, setSheetFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -84,6 +341,9 @@ export function LeadsPipelineClient({
   const [hasEmailFilter, setHasEmailFilter] = useState<string>("all");
   const [hasSocialFilter, setHasSocialFilter] = useState<string>("all");
   const [selectedMerchant, setSelectedMerchant] = useState<LeadRow | null>(null);
+  const [editingLead, setEditingLead] = useState<LeadRow | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const filtered = data.allRows.filter((r) => {
     if (sheetFilter !== "all" && r.sourceSheet !== sheetFilter) return false;
@@ -131,17 +391,23 @@ export function LeadsPipelineClient({
     acc[city] = (acc[city] ?? 0) + 1;
     return acc;
   }, {});
+  const topCitiesLimit = countryFilter === "PH" ? 5 : 10;
   const topCities = Object.entries(geoData)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
+    .slice(0, topCitiesLimit)
     .map(([name, count]) => ({ name, count }));
 
+  const funnelBarColors = getBarColors(funnelData);
+  const categoryBarColors = getBarColors(categoryData);
+  const topCitiesBarColors = getBarColors(topCities);
+
   const usLeadsForChart =
-    countryFilter === "US"
-      ? (data.bySheet["US New Leads"] ?? []).filter((r) => r.country === "US")
-      : countryFilter === "PH"
-        ? []
-        : data.bySheet["US New Leads"] ?? [];
+    countryFilter === "PH"
+      ? []
+      : dataForCharts.filter(
+          (r) =>
+            r.sourceSheet === "US New Leads" || r.sourceSheet === "US Interested Merchants"
+        );
   const usResultCounts = usLeadsForChart.reduce<Record<string, number>>(
     (acc, r) => {
       const v = (r.result || "(blank)").trim();
@@ -154,6 +420,17 @@ export function LeadsPipelineClient({
     name: name || "(blank)",
     value,
   }));
+
+  const resultChartTitle =
+    countryFilter === "PH"
+      ? "PH Leads Result"
+      : countryFilter === "US"
+        ? "US Leads Result"
+        : "All Leads Result";
+  const resultChartData =
+    countryFilter === "US"
+      ? usResultData
+      : funnelData.map(({ name, count }) => ({ name, value: count }));
 
   const followUpList = dataForCharts
     .filter((r) => r.needsFollowup)
@@ -258,19 +535,9 @@ export function LeadsPipelineClient({
             </button>
           </div>
         </div>
-        <div className="flex items-start gap-2 rounded-lg border border-muted bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium text-foreground">Why separate PH & US?</p>
-            <p className="mt-0.5 text-xs">
-              Different workflows: PH leads (samples, shipping from Philippines) vs US leads
-              (stateside outreach, time zones). Each has its own confirmation pipeline.
-            </p>
-          </div>
-        </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - dynamic by region filter */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
         <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
           <CardHeader className="pb-2">
@@ -278,39 +545,47 @@ export function LeadsPipelineClient({
             <CardTitle className="text-3xl">{cardKpis.total}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="pb-2">
-            <CardDescription>PH Confirmed</CardDescription>
-            <CardTitle className="text-3xl">{cardKpis.phConfirmed}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 text-xs text-muted-foreground">
-            {cardKpis.sampleReceived} samples · {cardKpis.shippedInTransit} shipped
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="pb-2">
-            <CardDescription>US Confirmed</CardDescription>
-            <CardTitle className="text-3xl">{cardKpis.usConfirmed}</CardTitle>
-          </CardHeader>
-        </Card>
+        {(countryFilter === "all" || countryFilter === "PH") && (
+          <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <CardDescription>PH Confirmed</CardDescription>
+              <CardTitle className="text-3xl">{cardKpis.phConfirmed}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-xs text-muted-foreground">
+              {cardKpis.sampleReceived} samples · {cardKpis.shippedInTransit} shipped
+            </CardContent>
+          </Card>
+        )}
+        {(countryFilter === "all" || countryFilter === "US") && (
+          <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <CardDescription>US Confirmed</CardDescription>
+              <CardTitle className="text-3xl">{cardKpis.usConfirmed}</CardTitle>
+            </CardHeader>
+          </Card>
+        )}
         <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
           <CardHeader className="pb-2">
             <CardDescription>Interested</CardDescription>
             <CardTitle className="text-3xl">{cardKpis.interested}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
-          <CardHeader className="pb-2">
-            <CardDescription>US Leads</CardDescription>
-            <CardTitle className="text-3xl">{cardKpis.usLeads}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>PH New Leads</CardDescription>
-            <CardTitle className="text-3xl">{cardKpis.phLeads}</CardTitle>
-          </CardHeader>
-        </Card>
+        {(countryFilter === "all" || countryFilter === "US") && (
+          <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <CardDescription>US Leads</CardDescription>
+              <CardTitle className="text-3xl">{cardKpis.usLeads}</CardTitle>
+            </CardHeader>
+          </Card>
+        )}
+        {(countryFilter === "all" || countryFilter === "PH") && (
+          <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <CardDescription>PH New Leads</CardDescription>
+              <CardTitle className="text-3xl">{cardKpis.phLeads}</CardTitle>
+            </CardHeader>
+          </Card>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -340,12 +615,6 @@ export function LeadsPipelineClient({
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={funnelData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <defs>
-                    <linearGradient id="barGradient1" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#5e3c28" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#d9823e" stopOpacity={0.9} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis
@@ -363,12 +632,11 @@ export function LeadsPipelineClient({
                     }}
                     cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                   />
-                  <Bar
-                    dataKey="count"
-                    fill="url(#barGradient1)"
-                    radius={[0, 6, 6, 0]}
-                    maxBarSize={28}
-                  />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {funnelData.map((_, i) => (
+                      <Cell key={i} fill={funnelBarColors[i] ?? BAR_LIGHT} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -383,12 +651,6 @@ export function LeadsPipelineClient({
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <defs>
-                    <linearGradient id="barGradient2" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#5e3c28" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#d9823e" stopOpacity={0.9} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis
@@ -406,12 +668,11 @@ export function LeadsPipelineClient({
                     }}
                     cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                   />
-                  <Bar
-                    dataKey="count"
-                    fill="url(#barGradient2)"
-                    radius={[0, 6, 6, 0]}
-                    maxBarSize={28}
-                  />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
+                    {categoryData.map((_, i) => (
+                      <Cell key={i} fill={categoryBarColors[i] ?? BAR_LIGHT} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -427,23 +688,23 @@ export function LeadsPipelineClient({
             <CardDescription>City/region</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[220px]">
+            <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topCities} layout="vertical" margin={{ left: 20, right: 20 }}>
-                  <defs>
-                    <linearGradient id="geoGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#5e3c28" stopOpacity={0.85} />
-                      <stop offset="100%" stopColor="#d9823e" stopOpacity={0.85} />
-                    </linearGradient>
-                  </defs>
+                <BarChart
+                  data={topCities}
+                  layout="vertical"
+                  margin={{ left: 4, right: 20, top: 8, bottom: 8 }}
+                  barCategoryGap={countryFilter === "PH" ? 16 : 6}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                   <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis
                     type="category"
                     dataKey="name"
-                    width={80}
-                    tick={{ fontSize: 10 }}
+                    width={countryFilter === "PH" ? 120 : 80}
+                    tick={{ fontSize: 12 }}
                     stroke="hsl(var(--muted-foreground))"
+                    interval={0}
                   />
                   <Tooltip
                     contentStyle={{
@@ -453,12 +714,11 @@ export function LeadsPipelineClient({
                     }}
                     cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
                   />
-                  <Bar
-                    dataKey="count"
-                    fill="url(#geoGradient)"
-                    radius={[0, 6, 6, 0]}
-                    maxBarSize={24}
-                  />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={32}>
+                    {topCities.map((_, i) => (
+                      <Cell key={i} fill={topCitiesBarColors[i] ?? BAR_LIGHT} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -466,7 +726,7 @@ export function LeadsPipelineClient({
         </Card>
         <Card className="overflow-hidden border-0 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle>US Leads Result</CardTitle>
+            <CardTitle>{resultChartTitle}</CardTitle>
             <CardDescription>Result breakdown</CardDescription>
           </CardHeader>
           <CardContent>
@@ -474,10 +734,10 @@ export function LeadsPipelineClient({
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <defs>
-                    {usResultData.map((d, i) => (
+                    {resultChartData.map((d, i) => (
                       <linearGradient
                         key={d.name}
-                        id={`us-${i}`}
+                        id={`result-${i}`}
                         x1="0"
                         y1="0"
                         x2="1"
@@ -485,19 +745,19 @@ export function LeadsPipelineClient({
                       >
                         <stop
                           offset="0%"
-                          stopColor={US_RESULT_COLORS[d.name] ?? "#94a3b8"}
+                          stopColor={RESULT_CHART_COLORS[d.name] ?? "#94a3b8"}
                           stopOpacity={1}
                         />
                         <stop
                           offset="100%"
-                          stopColor={US_RESULT_COLORS[d.name] ?? "#94a3b8"}
+                          stopColor={RESULT_CHART_COLORS[d.name] ?? "#94a3b8"}
                           stopOpacity={0.75}
                         />
                       </linearGradient>
                     ))}
                   </defs>
                   <Pie
-                    data={usResultData}
+                    data={resultChartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={45}
@@ -507,8 +767,8 @@ export function LeadsPipelineClient({
                     stroke="hsl(var(--background))"
                     strokeWidth={2}
                   >
-                    {usResultData.map((_, i) => (
-                      <Cell key={i} fill={`url(#us-${i})`} />
+                    {resultChartData.map((_, i) => (
+                      <Cell key={i} fill={`url(#result-${i})`} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -559,6 +819,20 @@ export function LeadsPipelineClient({
                 </div>
               </div>
               <span className="w-10 text-right text-sm font-medium">{Math.round(socialPct.ig)}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <TikTokIcon className="h-4 w-4 shrink-0" />
+              <div className="flex-1">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-black to-gray-700 transition-all"
+                    style={{ width: `${socialPct.tiktok}%` }}
+                  />
+                </div>
+              </div>
+              <span className="w-10 text-right text-sm font-medium">
+                {Math.round(socialPct.tiktok)}%
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <Globe className="h-4 w-4 shrink-0 text-pililokal-terracotta" />
@@ -715,8 +989,9 @@ export function LeadsPipelineClient({
                       <span className="flex gap-0.5">
                         {r.fb && <Facebook className="h-3.5 w-3.5" />}
                         {r.ig && <Instagram className="h-3.5 w-3.5" />}
+                        {r.tiktok && <TikTokIcon className="h-3.5 w-3.5" />}
                         {r.website && <Globe className="h-3.5 w-3.5" />}
-                        {!r.fb && !r.ig && !r.website && "—"}
+                        {!r.fb && !r.ig && !r.tiktok && !r.website && "—"}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
@@ -741,7 +1016,16 @@ export function LeadsPipelineClient({
       </Card>
 
       {/* Detail Dialog */}
-      <Dialog open={!!selectedMerchant} onOpenChange={() => setSelectedMerchant(null)}>
+      <Dialog
+        open={!!selectedMerchant}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMerchant(null);
+            setEditingLead(null);
+            setEditError(null);
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           {selectedMerchant && (
             <>
@@ -751,104 +1035,148 @@ export function LeadsPipelineClient({
                   {selectedMerchant.category} · {selectedMerchant.sourceSheet}
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Contact</p>
-                  <div className="mt-1 flex flex-wrap gap-4">
-                    {selectedMerchant.email && (
-                      <a
-                        href={`mailto:${selectedMerchant.email}`}
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Mail className="h-4 w-4" />
-                        {selectedMerchant.email}
-                      </a>
-                    )}
-                    {selectedMerchant.contact && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-4 w-4" />
-                        {selectedMerchant.contact}
-                      </span>
-                    )}
-                    {selectedMerchant.address && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {selectedMerchant.address}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Social</p>
-                  <div className="mt-1 flex gap-2">
-                    {selectedMerchant.fb && (
-                      <a
-                        href={selectedMerchant.fb}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Facebook className="h-4 w-4" />
-                        Facebook <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                    {selectedMerchant.ig && (
-                      <a
-                        href={selectedMerchant.ig}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Instagram className="h-4 w-4" />
-                        Instagram <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                    {selectedMerchant.website && (
-                      <a
-                        href={selectedMerchant.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Globe className="h-4 w-4" />
-                        Website <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                    {!selectedMerchant.fb &&
-                      !selectedMerchant.ig &&
-                      !selectedMerchant.website && (
-                        <span className="text-muted-foreground">No social links</span>
+              {editingLead && editingLead.id ? (
+                <LeadEditForm
+                  lead={editingLead}
+                  onCancel={() => {
+                    setEditingLead(null);
+                    setEditError(null);
+                  }}
+                  onSaved={(updated) => {
+                    setSelectedMerchant(updated);
+                    setEditingLead(null);
+                    setEditError(null);
+                    router.refresh();
+                  }}
+                  saving={editSaving}
+                  setSaving={setEditSaving}
+                  error={editError}
+                  setError={setEditError}
+                />
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Contact</p>
+                    <div className="mt-1 flex flex-wrap gap-4">
+                      {selectedMerchant.email && (
+                        <a
+                          href={`mailto:${selectedMerchant.email}`}
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Mail className="h-4 w-4" />
+                          {selectedMerchant.email}
+                        </a>
                       )}
+                      {selectedMerchant.contact && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-4 w-4" />
+                          {selectedMerchant.contact}
+                        </span>
+                      )}
+                      {selectedMerchant.address && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-4 w-4" />
+                          {selectedMerchant.address}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Products</p>
-                  <p className="mt-1">{selectedMerchant.products || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Status Notes</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">
-                    {selectedMerchant.statusNotes || "—"}
-                  </p>
-                </div>
-                {selectedMerchant.callsUpdate && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Calls Update</p>
+                    <p className="text-sm font-medium text-muted-foreground">Social</p>
+                    <div className="mt-1 flex gap-2">
+                      {selectedMerchant.fb && (
+                        <a
+                          href={selectedMerchant.fb}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Facebook className="h-4 w-4" />
+                          Facebook <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {selectedMerchant.ig && (
+                        <a
+                          href={selectedMerchant.ig}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Instagram className="h-4 w-4" />
+                          Instagram <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {selectedMerchant.tiktok && (
+                        <a
+                          href={selectedMerchant.tiktok}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <TikTokIcon className="h-4 w-4" />
+                          TikTok <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {selectedMerchant.website && (
+                        <a
+                          href={selectedMerchant.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-primary hover:underline"
+                        >
+                          <Globe className="h-4 w-4" />
+                          Website <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                      {!selectedMerchant.fb &&
+                        !selectedMerchant.ig &&
+                        !selectedMerchant.tiktok &&
+                        !selectedMerchant.website && (
+                          <span className="text-muted-foreground">No social links</span>
+                        )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Products</p>
+                    <p className="mt-1">{selectedMerchant.products || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Status Notes</p>
                     <p className="mt-1 whitespace-pre-wrap text-sm">
-                      {selectedMerchant.callsUpdate}
+                      {selectedMerchant.statusNotes || "—"}
                     </p>
                   </div>
-                )}
-                {selectedMerchant.encodedBy && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Encoded By</p>
-                    <p className="mt-1 flex items-center gap-1">
-                      <User className="h-4 w-4" />
-                      {selectedMerchant.encodedBy}
-                    </p>
-                  </div>
-                )}
-              </div>
+                  {selectedMerchant.callsUpdate && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Calls Update</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm">
+                        {selectedMerchant.callsUpdate}
+                      </p>
+                    </div>
+                  )}
+                  {selectedMerchant.encodedBy && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Encoded By</p>
+                      <p className="mt-1 flex items-center gap-1">
+                        <User className="h-4 w-4" />
+                        {selectedMerchant.encodedBy}
+                      </p>
+                    </div>
+                  )}
+                  {selectedMerchant.id && (
+                    <div className="mt-6 flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={() => setEditingLead(selectedMerchant)}
+                        className="bg-[#5e3c28] text-white hover:bg-[#4a2f20]"
+                      >
+                        <Pencil className="mr-1 h-4 w-4" />
+                        Edit
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </DialogContent>

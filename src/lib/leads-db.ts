@@ -18,6 +18,7 @@ const SHEET_NAMES: SourceSheet[] = [
 ];
 
 function dbToLeadRow(row: {
+  id: string;
   sourceSheet: string;
   merchantName: string;
   category: string;
@@ -47,6 +48,7 @@ function dbToLeadRow(row: {
   lastActivityDates: string | null;
 }): LeadRow {
   return {
+    id: row.id,
     sourceSheet: row.sourceSheet as SourceSheet,
     merchantName: row.merchantName,
     category: row.category,
@@ -274,4 +276,49 @@ export async function importLeadsToDb(leads: LeadCreateInput[]): Promise<number>
   });
 
   return leads.length;
+}
+
+export async function updateLeadInDb(
+  leadId: string,
+  data: Partial<{
+    merchantName: string;
+    category: string;
+    products: string;
+    email: string;
+    contact: string;
+    address: string;
+    statusNotes: string;
+    result: string;
+    callsUpdate: string;
+    followupEmail: string;
+    country: string;
+    city: string;
+    fb: string;
+    ig: string;
+    tiktok: string;
+    website: string;
+  }>
+): Promise<void> {
+  const update: Record<string, unknown> = {};
+  if (data.merchantName !== undefined) update.merchantName = data.merchantName;
+  if (data.category !== undefined) update.category = data.category;
+  if (data.products !== undefined) update.products = data.products;
+  if (data.email !== undefined) update.email = data.email || null;
+  if (data.contact !== undefined) update.contact = data.contact || null;
+  if (data.address !== undefined) update.address = data.address || null;
+  if (data.statusNotes !== undefined) update.statusNotes = data.statusNotes || null;
+  if (data.result !== undefined) update.result = data.result || null;
+  if (data.callsUpdate !== undefined) update.callsUpdate = data.callsUpdate || null;
+  if (data.followupEmail !== undefined) update.followupEmail = data.followupEmail || null;
+  if (data.country !== undefined) update.country = data.country || null;
+  if (data.city !== undefined) update.city = data.city || null;
+  if (data.fb !== undefined) update.fb = data.fb || null;
+  if (data.ig !== undefined) update.ig = data.ig || null;
+  if (data.tiktok !== undefined) update.tiktok = data.tiktok || null;
+  if (data.website !== undefined) update.website = data.website || null;
+  if (Object.keys(update).length === 0) return;
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: update,
+  });
 }

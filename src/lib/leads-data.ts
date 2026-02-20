@@ -17,6 +17,7 @@ export type SourceSheet =
   | "Previous Clients";
 
 export type LeadRow = {
+  id?: string;
   sourceSheet: SourceSheet;
   merchantName: string;
   category: string;
@@ -76,6 +77,11 @@ const COL_ALIASES: Record<string, string> = {
   Website: "website",
   "Encoded By": "encodedBy",
   Result: "result",
+  Results: "result",
+  Outcome: "result",
+  "Call Result": "result",
+  "Follow-up Result": "result",
+  "Lead Result": "result",
   "Calls Update": "callsUpdate",
   "Followup Email": "followupEmail",
   "Reach Via Socmed": "reachViaSocmed",
@@ -120,10 +126,18 @@ function sheetToRows(sheet: XLSX.WorkSheet, sourceSheet: SourceSheet): LeadRow[]
     const addrLower = address.toLowerCase();
     if (
       addrLower.includes("united states") ||
-      /,\s*(CA|NY|TX|FL|IL|WA|NJ|PA|OH|GA)\s*(?:\d|$)/i.test(address)
+      addrLower.includes(" usa") ||
+      addrLower.endsWith(" usa") ||
+      /,\s*(CA|NY|TX|FL|IL|WA|NJ|PA|OH|GA|AZ|CO|NV|OR|VA|MA|MI)\s*(?:\d|$)/i.test(address)
     ) {
       country = "US";
-    } else if (addrLower.includes("philippines") || addrLower.includes("manila") || addrLower.includes("quezon") || address.length > 0) {
+    } else if (addrLower.includes("philippines") || addrLower.includes("manila") || addrLower.includes("quezon") || addrLower.includes("cebu") || addrLower.includes("ph")) {
+      country = "PH";
+    } else if (sourceSheet === "US New Leads" || sourceSheet === "US Interested Merchants" || sourceSheet === "US Confirmed Merchants") {
+      country = "US";
+    } else if (sourceSheet === "PH New Leads" || sourceSheet === "PH Confirmed Merchants" || sourceSheet === "Interested Merchants") {
+      country = "PH";
+    } else if (address.length > 0) {
       country = "PH";
     }
 

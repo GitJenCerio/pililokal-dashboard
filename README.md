@@ -69,13 +69,47 @@ Internal dashboard for tracking merchant progress on Shopify uploads. Built for 
 
 Change this in production.
 
-### Production (PostgreSQL)
+### PostgreSQL setup
 
-1. Set `DATABASE_URL` to your PostgreSQL connection string in `.env`
-2. Update `prisma/schema.prisma` datasource from `sqlite` to `postgresql`
-3. Run `npx prisma migrate dev` to create tables
-4. Seed: `npx prisma db seed`
-5. Build and start: `npm run build && npm start`
+The project is configured to use **PostgreSQL** by default. To run it with PostgreSQL:
+
+1. **Install and run PostgreSQL** (if needed):
+   - **Windows**: [PostgreSQL installer](https://www.postgresql.org/download/windows/) or use Docker: `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres`
+   - **Mac**: `brew install postgresql@16` then `brew services start postgresql@16`
+   - **Linux**: `sudo apt install postgresql postgresql-contrib` (or your distro’s package)
+
+2. **Create a database** (e.g. `pililokal`):
+   ```bash
+   # Using psql (after PostgreSQL is running):
+   createdb pililokal
+   # Or in psql: CREATE DATABASE pililokal;
+   ```
+
+3. **Set the connection string in `.env`**:
+   ```env
+   DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE?schema=public"
+   ```
+   Examples:
+   - Local (default user): `postgresql://postgres:postgres@localhost:5432/pililokal?schema=public`
+   - Supabase / Neon / Railway: use the “Connection string” from your provider’s dashboard (usually a “Direct” or “Transaction” URL).
+
+4. **Apply the schema and seed**:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   npx prisma db seed
+   ```
+
+5. **Run the app**:
+   ```bash
+   npm run dev
+   ```
+
+To use **SQLite** instead (e.g. for local dev without PostgreSQL), set in `prisma/schema.prisma`:
+- `provider = "sqlite"`  
+and in `.env`:  
+- `DATABASE_URL="file:./dev.db"`
+Then run `npx prisma generate` and `npx prisma db push` again.
 
 ## Project Structure
 

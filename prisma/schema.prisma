@@ -69,6 +69,7 @@ model Merchant {
   addressState     String?
   addressZip       String?
   shopifyPhone     String?
+  notes            String?
 
   uploadedBy      User?   @relation("UploadedBy", fields: [uploadedById], references: [id])
   lastUpdatedBy   User?   @relation("LastUpdatedBy", fields: [lastUpdatedById], references: [id])

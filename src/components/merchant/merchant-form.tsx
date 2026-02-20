@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { saveMerchantAction } from "@/app/dashboard/merchants/actions";
 import type { Merchant, MerchantProductApproval } from "@prisma/client";
-import type { SubmissionType, SelectionMode, ShopifyStatus } from "@/lib/types";
+import type { SubmissionType, SelectionMode } from "@/lib/types";
 
 type MerchantWithProducts = Merchant & { approvedProducts: MerchantProductApproval[] };
 
@@ -24,24 +24,26 @@ const selectionOptions: { value: SelectionMode; label: string }[] = [
   { value: "SELECTED_ONLY", label: "Selected Only" },
 ];
 
-const statusOptions: { value: ShopifyStatus; label: string }[] = [
-  { value: "NOT_STARTED", label: "Not Started" },
-  { value: "IN_PROGRESS", label: "In Progress" },
-  { value: "UPLOADED", label: "Uploaded" },
-  { value: "LIVE", label: "Live" },
+const CATEGORY_OPTIONS = [
+  "Clothing & Wearables",
+  "Food & Gourmet Products",
+  "Home Décor & Handicrafts",
+  "Bags & Accessories",
+  "Candles & Home Fragrances",
+  "Stationery & Paper Products",
+  "Art & Figurines",
+  "Handwoven Textiles / Fabrics",
+  "Heritage / Multi-Product",
+  "Lifestyle",
+  "Liquor / Beverages",
+  "Miscellaneous / Specialty Products",
+  "Other",
 ];
 
 export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [products, setProducts] = useState(
-    merchant?.approvedProducts.map((p) => ({ name: p.productName, url: p.productUrl ?? "" })) ?? [{ name: "", url: "" }]
-  );
-
-  const addProduct = () => setProducts((p) => [...p, { name: "", url: "" }]);
-  const removeProduct = (i: number) => setProducts((p) => p.filter((_, j) => j !== i));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,15 +52,10 @@ export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) 
     const form = e.currentTarget;
     const formData = new FormData(form);
 
-    const approvedProducts = products
-      .filter((p) => p.name.trim())
-      .map((p) => ({ productName: p.name.trim(), productUrl: p.url.trim() || undefined }));
-
     try {
       const result = await saveMerchantAction(
         merchant?.id ?? null,
-        Object.fromEntries(formData.entries()) as Record<string, string>,
-        approvedProducts
+        Object.fromEntries(formData.entries()) as Record<string, string>
       );
       if (result?.error) {
         setError(result.error);
@@ -88,12 +85,43 @@ export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) 
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
+            <Label htmlFor="region">Region (PH / US)</Label>
+            <select
+              id="region"
+              name="region"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              defaultValue={
+                merchant?.addressCountry?.toLowerCase().includes("philippine")
+                  ? "Philippines"
+                  : merchant?.addressCountry?.toLowerCase().includes("united")
+                    ? "United States"
+                    : ""
+              }
+            >
+              <option value="">—</option>
+              <option value="Philippines">Philippines (PH)</option>
+              <option value="United States">United States (US)</option>
+            </select>
+          </div>
+          <div>
             <Label htmlFor="name">Merchant Name *</Label>
             <Input id="name" name="name" defaultValue={merchant?.name} required />
           </div>
           <div>
             <Label htmlFor="category">Category</Label>
-            <Input id="category" name="category" defaultValue={merchant?.category} />
+            <select
+              id="category"
+              name="category"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              defaultValue={merchant?.category ?? ""}
+            >
+              <option value="">—</option>
+              {CATEGORY_OPTIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <Label htmlFor="contactName">Contact Person</Label>
@@ -182,112 +210,6 @@ export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) 
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Shopify Upload</CardTitle>
-          <CardDescription>Status and metadata</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <Label htmlFor="shopifyStatus">Shopify Status</Label>
-            <select
-              id="shopifyStatus"
-              name="shopifyStatus"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={merchant?.shopifyStatus ?? "NOT_STARTED"}
-            >
-              {statusOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="shopifyVendorName">Shopify Vendor Name</Label>
-            <Input id="shopifyVendorName" name="shopifyVendorName" defaultValue={merchant?.shopifyVendorName} />
-          </div>
-          <div>
-            <Label htmlFor="shopifyCollection">Collection Assigned</Label>
-            <Input id="shopifyCollection" name="shopifyCollection" defaultValue={merchant?.shopifyCollection} />
-          </div>
-          <div>
-            <Label htmlFor="shopifyTags">Tags (comma-separated)</Label>
-            <Input id="shopifyTags" name="shopifyTags" defaultValue={merchant?.shopifyTags} placeholder="tag1, tag2" />
-          </div>
-          <div>
-            <Label htmlFor="productsSubmittedCount">Products Submitted</Label>
-            <Input
-              id="productsSubmittedCount"
-              name="productsSubmittedCount"
-              type="number"
-              min={0}
-              defaultValue={merchant?.productsSubmittedCount ?? ""}
-            />
-          </div>
-          <div>
-            <Label htmlFor="productsUploadedCount">Products Uploaded</Label>
-            <Input
-              id="productsUploadedCount"
-              name="productsUploadedCount"
-              type="number"
-              min={0}
-              defaultValue={merchant?.productsUploadedCount ?? 0}
-            />
-          </div>
-          <div>
-            <Label htmlFor="productsTargetCount">Products Target</Label>
-            <Input
-              id="productsTargetCount"
-              name="productsTargetCount"
-              type="number"
-              min={0}
-              defaultValue={merchant?.productsTargetCount ?? ""}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Product Flags</CardTitle>
-          <CardDescription>Extraction and approval</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          {[
-            "productsExtracted",
-            "productsSentForConfirmation",
-            "merchantApprovedExtractedList",
-            "variantsComplete",
-            "pricingAdded",
-            "inventoryAdded",
-            "skuAdded",
-            "imagesComplete",
-            "finalReviewed",
-          ].map((key) => (
-            <div key={key} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={key}
-                name={key}
-                defaultChecked={(merchant as Record<string, unknown>)?.[key] as boolean}
-                className="h-4 w-4 rounded border"
-              />
-              <Label htmlFor={key}>{key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}</Label>
-            </div>
-          ))}
-          <div>
-            <Label htmlFor="approvedAt">Date Approved</Label>
-            <Input
-              id="approvedAt"
-              name="approvedAt"
-              type="date"
-              defaultValue={merchant?.approvedAt ? new Date(merchant.approvedAt).toISOString().slice(0, 10) : ""}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mb-6">
-        <CardHeader>
           <CardTitle>Address</CardTitle>
           <CardDescription>Business and return addresses</CardDescription>
         </CardHeader>
@@ -316,52 +238,24 @@ export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) 
             <Label htmlFor="addressZip">Zip</Label>
             <Input id="addressZip" name="addressZip" defaultValue={merchant?.addressZip} />
           </div>
-          <div>
-            <Label htmlFor="shopifyPhone">Phone (Shopify)</Label>
-            <Input id="shopifyPhone" name="shopifyPhone" defaultValue={merchant?.shopifyPhone} />
-          </div>
         </CardContent>
       </Card>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Approved Products</CardTitle>
-          <CardDescription>List of approved product names and optional URLs</CardDescription>
+          <CardTitle>Notes</CardTitle>
+          <CardDescription>Status and other details (can be updated later)</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {products.map((p, i) => (
-            <div key={i} className="flex gap-2">
-              <Input
-                placeholder="Product name"
-                value={p.name}
-                onChange={(e) =>
-                  setProducts((prev) => {
-                    const next = [...prev];
-                    next[i] = { ...next[i], name: e.target.value };
-                    return next;
-                  })
-                }
-              />
-              <Input
-                placeholder="URL (optional)"
-                type="url"
-                value={p.url}
-                onChange={(e) =>
-                  setProducts((prev) => {
-                    const next = [...prev];
-                    next[i] = { ...next[i], url: e.target.value };
-                    return next;
-                  })
-                }
-              />
-              <Button type="button" variant="outline" size="icon" onClick={() => removeProduct(i)}>
-                ×
-              </Button>
-            </div>
-          ))}
-          <Button type="button" variant="outline" onClick={addProduct}>
-            Add Product
-          </Button>
+        <CardContent>
+          <Label htmlFor="notes">Notes</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            rows={4}
+            className="mt-2"
+            defaultValue={merchant?.notes ?? ""}
+            placeholder="Add status, follow-up notes, or other details..."
+          />
         </CardContent>
       </Card>
 

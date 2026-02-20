@@ -3,16 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import type {
-  SubmissionType,
-  SelectionMode,
-  ShopifyStatus,
-} from "@/lib/types";
+import type { SubmissionType, SelectionMode } from "@/lib/types";
 
 export async function saveMerchantAction(
   merchantId: string | null,
-  data: Record<string, string | undefined>,
-  approvedProducts: { productName: string; productUrl?: string }[]
+  data: Record<string, string | undefined>
 ) {
   const session = await getServerSession();
   if (!session) return { error: "Unauthorized" };
@@ -35,36 +30,13 @@ export async function saveMerchantAction(
     submissionType: (data.submissionType as SubmissionType) ?? "MERCHANT_SELECTED",
     selectionMode: (data.selectionMode as SelectionMode) ?? "SELECTED_ONLY",
     selectionConfirmed: bool(data.selectionConfirmed),
-    shopifyStatus: (data.shopifyStatus as ShopifyStatus) ?? "NOT_STARTED",
-    shopifyVendorName: data.shopifyVendorName?.trim() || null,
-    shopifyCollection: data.shopifyCollection?.trim() || null,
-    shopifyTags: data.shopifyTags?.trim() || null,
-    productsSubmittedCount: data.productsSubmittedCount
-      ? parseInt(data.productsSubmittedCount, 10)
-      : null,
-    productsUploadedCount: data.productsUploadedCount
-      ? parseInt(data.productsUploadedCount, 10)
-      : 0,
-    productsTargetCount: data.productsTargetCount
-      ? parseInt(data.productsTargetCount, 10)
-      : null,
-    productsExtracted: bool(data.productsExtracted),
-    productsSentForConfirmation: bool(data.productsSentForConfirmation),
-    merchantApprovedExtractedList: bool(data.merchantApprovedExtractedList),
-    approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
-    variantsComplete: bool(data.variantsComplete),
-    pricingAdded: bool(data.pricingAdded),
-    inventoryAdded: bool(data.inventoryAdded),
-    skuAdded: bool(data.skuAdded),
-    imagesComplete: bool(data.imagesComplete),
-    finalReviewed: bool(data.finalReviewed),
     businessAddress: data.businessAddress?.trim() || null,
     warehouseAddress: data.warehouseAddress?.trim() || null,
     returnAddress: data.returnAddress?.trim() || null,
-    addressCountry: data.addressCountry?.trim() || null,
+    addressCountry: data.region?.trim() || data.addressCountry?.trim() || null,
     addressState: data.addressState?.trim() || null,
     addressZip: data.addressZip?.trim() || null,
-    shopifyPhone: data.shopifyPhone?.trim() || null,
+    notes: data.notes?.trim() || null,
     lastUpdatedById: session.userId,
   };
 
@@ -73,18 +45,6 @@ export async function saveMerchantAction(
       where: { id: merchantId },
       data: payload,
     });
-    await prisma.merchantProductApproval.deleteMany({
-      where: { merchantId },
-    });
-    if (approvedProducts.length > 0) {
-      await prisma.merchantProductApproval.createMany({
-        data: approvedProducts.map((p) => ({
-          merchantId,
-          productName: p.productName,
-          productUrl: p.productUrl || null,
-        })),
-      });
-    }
     await prisma.activityLog.create({
       data: {
         merchantId,
@@ -100,15 +60,6 @@ export async function saveMerchantAction(
     const merchant = await prisma.merchant.create({
       data: payload,
     });
-    if (approvedProducts.length > 0) {
-      await prisma.merchantProductApproval.createMany({
-        data: approvedProducts.map((p) => ({
-          merchantId: merchant.id,
-          productName: p.productName,
-          productUrl: p.productUrl || null,
-        })),
-      });
-    }
     await prisma.activityLog.create({
       data: {
         merchantId: merchant.id,
