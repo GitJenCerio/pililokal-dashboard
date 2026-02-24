@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { parseExcelWithBreakdown } from "@/lib/leads-data";
 import { importLeadsToDb, updateLeadInDb, type LeadCreateInput } from "@/lib/leads-db";
 
@@ -73,6 +74,7 @@ export async function updateLeadAction(
     result?: string;
     callsUpdate?: string;
     country?: string;
+    sourceSheet?: string;
     [key: string]: string | undefined;
   }
 ): Promise<{ success: boolean; error?: string }> {
@@ -89,6 +91,55 @@ export async function updateLeadAction(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Update failed",
+    };
+  }
+}
+
+export async function updateLeadShopifyStatusAction(
+  leadId: string,
+  shopifyStatus: string
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getServerSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    await prisma.lead.update({
+      where: { id: leadId },
+      data: { shopifyStatus: shopifyStatus || "NOT_STARTED" },
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard/shopify");
+    return { success: true };
+  } catch (err) {
+    console.error("Update lead shopify status failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Update failed",
+    };
+  }
+}
+
+export async function deleteLeadAction(leadId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const session = await getServerSession();
+  if (!session) return { success: false, error: "Unauthorized" };
+
+  try {
+    await prisma.lead.delete({
+      where: { id: leadId },
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard/shopify");
+    return { success: true };
+  } catch (err) {
+    console.error("Delete lead failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Delete failed",
     };
   }
 }

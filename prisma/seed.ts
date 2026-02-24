@@ -14,7 +14,7 @@ async function main() {
     },
   });
 
-  console.log("Seed completed. Admin user created. Add merchants via the dashboard.");
+  console.log("Seed completed. Import leads from Excel on Leads Pipeline.");
 }
 
 main()

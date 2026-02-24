@@ -78,6 +78,7 @@ function dbToLeadRow(row: {
     lastActivityDates: row.lastActivityDates
       ? (JSON.parse(row.lastActivityDates) as string[])
       : undefined,
+    shopifyStatus: row.shopifyStatus ?? undefined,
   };
 }
 
@@ -297,10 +298,12 @@ export async function updateLeadInDb(
     ig: string;
     tiktok: string;
     website: string;
+    sourceSheet: string;
   }>
 ): Promise<void> {
   const update: Record<string, unknown> = {};
   if (data.merchantName !== undefined) update.merchantName = data.merchantName;
+  if (data.sourceSheet !== undefined) update.sourceSheet = data.sourceSheet;
   if (data.category !== undefined) update.category = data.category;
   if (data.products !== undefined) update.products = data.products;
   if (data.email !== undefined) update.email = data.email || null;

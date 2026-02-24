@@ -132,4 +132,6 @@ model Lead {
   needsFollowup Boolean @default(false)
   lastActivityDates String? // JSON array of date strings
   importedAt   DateTime @default(now())
+  // Shopify upload tracking (for confirmed leads shown on Shopify Updates)
+  shopifyStatus String @default("NOT_STARTED")
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, Users, LogOut, LineChart } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, LineChart, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/app/logout/action";
 
@@ -46,6 +46,13 @@ export function DashboardLayout({
           >
             <LineChart className="h-4 w-4" />
             Leads Pipeline
+          </Link>
+          <Link
+            href="/dashboard/shopify"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Shopify Updates
           </Link>
         </nav>
       </aside>

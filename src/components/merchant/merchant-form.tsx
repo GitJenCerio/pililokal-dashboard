@@ -40,7 +40,23 @@ const CATEGORY_OPTIONS = [
   "Other",
 ];
 
-export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) {
+type InitialFromLead = {
+  name?: string;
+  category?: string;
+  email?: string;
+  contactName?: string;
+};
+
+export function MerchantForm({
+  merchant,
+  initialFromLead,
+}: {
+  merchant?: MerchantWithProducts;
+  initialFromLead?: InitialFromLead;
+}) {
+  const defaults = merchant
+    ? { name: merchant.name, category: merchant.category, email: merchant.email, contactName: merchant.contactName }
+    : (initialFromLead ?? {});
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,11 +141,11 @@ export function MerchantForm({ merchant }: { merchant?: MerchantWithProducts }) 
           </div>
           <div>
             <Label htmlFor="contactName">Contact Person</Label>
-            <Input id="contactName" name="contactName" defaultValue={merchant?.contactName} />
+            <Input id="contactName" name="contactName" defaultValue={defaults.contactName} />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={merchant?.email} />
+            <Input id="email" name="email" type="email" defaultValue={defaults.email} />
           </div>
           <div>
             <Label htmlFor="phone">Phone</Label>

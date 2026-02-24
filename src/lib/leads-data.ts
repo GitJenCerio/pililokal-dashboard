@@ -46,6 +46,7 @@ export type LeadRow = {
   stage?: string;
   needsFollowup?: boolean;
   lastActivityDates?: string[];
+  shopifyStatus?: string;
 };
 
 const SHEET_NAMES: SourceSheet[] = [

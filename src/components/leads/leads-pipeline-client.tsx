@@ -48,6 +48,7 @@ import {
   MapPin,
   User,
   Pencil,
+  Trash2,
 } from "lucide-react";
 
 const BAR_DARK = "#3d2817";
@@ -272,6 +273,21 @@ function LeadEditForm({
           className="mt-1"
           defaultValue={lead.statusNotes}
         />
+      </div>
+      <div>
+        <Label htmlFor="sourceSheet">Pipeline Stage</Label>
+        <select
+          id="sourceSheet"
+          name="sourceSheet"
+          className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          defaultValue={lead.sourceSheet}
+        >
+          {SHEET_OPTIONS.filter((o) => o.value !== "all").map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
       </div>
       {(lead.sourceSheet === "US New Leads" ||
         lead.sourceSheet === "US Interested Merchants" ||
@@ -1164,7 +1180,7 @@ export function LeadsPipelineClient({
                     </div>
                   )}
                   {selectedMerchant.id && (
-                    <div className="mt-6 flex justify-end">
+                    <div className="mt-6 flex justify-end gap-2">
                       <Button
                         size="sm"
                         onClick={() => setEditingLead(selectedMerchant)}
@@ -1172,6 +1188,22 @@ export function LeadsPipelineClient({
                       >
                         <Pencil className="mr-1 h-4 w-4" />
                         Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={async () => {
+                          if (!confirm(`Delete "${selectedMerchant.merchantName}"?`)) return;
+                          const r = await deleteLeadAction(selectedMerchant.id!);
+                          if (r.success) {
+                            setSelectedMerchant(null);
+                            router.refresh();
+                          } else {
+                            alert(r.error);
+                          }
+                        }}
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" /> Delete
                       </Button>
                     </div>
                   )}
