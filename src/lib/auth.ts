@@ -1,14 +1,14 @@
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 import bcrypt from "bcryptjs";
-
-const SESSION_COOKIE = "pililokal_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+import { sealSession, unsealSession, SESSION_COOKIE, SESSION_MAX_AGE } from "./session";
 
 export type Session = {
   userId: string;
   email: string;
   name: string;
+  role: string;
+  isActive: boolean;
 };
 
 export async function getServerSession(): Promise<Session | null> {
@@ -16,20 +16,22 @@ export async function getServerSession(): Promise<Session | null> {
   const sessionCookie = cookieStore.get(SESSION_COOKIE);
   if (!sessionCookie?.value) return null;
 
-  try {
-    const { userId } = JSON.parse(sessionCookie.value);
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) return null;
-    return {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-    };
-  } catch {
-    return null;
-  }
+  const data = await unsealSession(sessionCookie.value);
+  if (!data?.userId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: data.userId },
+  });
+  if (!user) return null;
+  if (!user.isActive) return null;
+
+  return {
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    isActive: user.isActive,
+  };
 }
 
 export async function login(email: string, password: string): Promise<Session | null> {
@@ -41,15 +43,23 @@ export async function login(email: string, password: string): Promise<Session | 
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) return null;
 
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
+    role: user.role,
+    isActive: user.isActive,
   };
 }
 
-export function createSessionCookie(session: Session): string {
-  return `${SESSION_COOKIE}=${encodeURIComponent(JSON.stringify({ userId: session.userId }))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`;
+/** Returns the sealed cookie value to set for the session. */
+export async function createSessionCookie(session: Session): Promise<string> {
+  return sealSession({ userId: session.userId });
 }
 
 export async function logout(): Promise<void> {
@@ -58,3 +68,5 @@ export async function logout(): Promise<void> {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
 }
+
+export { SESSION_COOKIE, SESSION_MAX_AGE };

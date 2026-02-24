@@ -1,8 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { login } from "@/lib/auth";
-import { createSessionCookie } from "@/lib/auth";
+import { login, createSessionCookie, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
 import { cookies } from "next/headers";
 
 export async function loginAction(formData: FormData) {
@@ -17,12 +16,13 @@ export async function loginAction(formData: FormData) {
     return { error: "Invalid email or password" };
   }
 
+  const sealedValue = await createSessionCookie(session);
   const cookieStore = await cookies();
-  cookieStore.set("pililokal_session", JSON.stringify({ userId: session.userId }), {
+  cookieStore.set(SESSION_COOKIE, sealedValue, {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE,
   });
 
   redirect("/dashboard");

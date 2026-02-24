@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -45,7 +46,18 @@ import {
   CheckCircle2,
   LineChart,
   Users,
+  Download,
+  Trash2,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { bulkUpdateStatusAction, bulkDeleteAction } from "@/app/dashboard/merchants/actions";
 import type { ShopifyStatus, SubmissionType, SelectionMode } from "@/lib/types";
 
 type MerchantRow = {
@@ -97,6 +109,9 @@ export function DashboardClient({
   needsAttentionList,
   leadsData,
   filters,
+  userRole,
+  pagination,
+  cursor,
 }: {
   merchants: MerchantRow[];
   kpis: { total: number; notStarted: number; inProgress: number; uploaded: number; live: number };
@@ -109,9 +124,17 @@ export function DashboardClient({
     attention?: string;
     search?: string;
   };
+  userRole?: string;
+  pagination?: { total: number; nextCursor: string | null; pageSize: number };
+  cursor?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<string>("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const isAdmin = userRole === "ADMIN";
 
   const updateFilter = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -135,6 +158,65 @@ export function DashboardClient({
     }
     return true;
   });
+
+  const selectAll = filtered.every((m) => selectedIds.has(m.id));
+  const toggleSelectAll = () => {
+    if (selectAll) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map((m) => m.id)));
+  };
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkStatus = async () => {
+    if (!bulkStatus || selectedIds.size === 0) return;
+    setBulkLoading(true);
+    const result = await bulkUpdateStatusAction(
+      Array.from(selectedIds),
+      bulkStatus as import("@/lib/types").ShopifyStatus
+    );
+    setBulkLoading(false);
+    if (result.error) alert(result.error);
+    else setSelectedIds(new Set());
+    router.refresh();
+  };
+
+  const handleExportSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const res = await fetch("/api/export/merchants", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds) }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || "Export failed");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `merchants-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    const result = await bulkDeleteAction(Array.from(selectedIds));
+    setBulkLoading(false);
+    setDeleteConfirmOpen(false);
+    if (result.error) alert(result.error);
+    else setSelectedIds(new Set());
+    router.refresh();
+  };
 
   const shopifyStatusData = [
     { name: "Not Started", value: kpis.notStarted, color: "#94a3b8" },
@@ -469,6 +551,58 @@ export function DashboardClient({
         </CardContent>
       </Card>
 
+      {/* Bulk actions toolbar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-lg">
+          <span className="text-sm font-medium">{selectedIds.size} selected</span>
+          <Select value={bulkStatus} onValueChange={setBulkStatus}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Update status" />
+            </SelectTrigger>
+            <SelectContent>
+              {(["NOT_STARTED", "IN_PROGRESS", "UPLOADED", "LIVE"] as const).map((s) => (
+                <SelectItem key={s} value={s}>
+                  {statusLabel[s]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={handleBulkStatus} disabled={!bulkStatus || bulkLoading}>
+            Apply
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleExportSelected}>
+            <Download className="mr-1 h-4 w-4" />
+            Export
+          </Button>
+          {isAdmin && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteConfirmOpen(true)}>
+              <Trash2 className="mr-1 h-4 w-4" />
+              Delete
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.size} merchant(s)?</DialogTitle>
+            <DialogDescription>
+              This cannot be undone. All activity logs and related data will be removed.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkLoading}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Main Table */}
       <Card>
         <CardContent className="p-0">
@@ -476,6 +610,14 @@ export function DashboardClient({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
+                  <th className="w-10 px-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectAll}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left font-medium">Merchant</th>
                   <th className="px-4 py-3 text-left font-medium">Category</th>
                   <th className="px-4 py-3 text-left font-medium">Submission Type</th>
@@ -493,13 +635,21 @@ export function DashboardClient({
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                       No merchants found.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((m) => (
                     <tr key={m.id} className="border-b hover:bg-muted/30">
+                      <td className="w-10 px-2 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(m.id)}
+                          onChange={() => toggleSelect(m.id)}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                      </td>
                       <td className="px-4 py-2">
                         <Link
                           href={`/dashboard/merchants/${m.id}`}
@@ -540,6 +690,54 @@ export function DashboardClient({
               </tbody>
             </table>
           </div>
+          {pagination && (
+            <div className="flex items-center justify-between border-t px-4 py-3">
+              <p className="text-sm text-muted-foreground">
+                {pagination.total === 0
+                  ? "No merchants"
+                  : (() => {
+                      const pageParam = searchParams.get("page");
+                      const page = cursor
+                        ? Math.max(2, parseInt(pageParam ?? "2", 10) || 2)
+                        : Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+                      const start = (page - 1) * pagination.pageSize + 1;
+                      const end = Math.min((page - 1) * pagination.pageSize + filtered.length, pagination.total);
+                      return `Showing ${start}–${end} of ${pagination.total} merchants`;
+                    })()}
+              </p>
+              <div className="flex gap-2">
+                {cursor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams.toString());
+                      next.delete("cursor");
+                      next.delete("page");
+                      router.push(`/dashboard?${next.toString()}`);
+                    }}
+                  >
+                    Previous
+                  </Button>
+                )}
+                {pagination.nextCursor && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams.toString());
+                      next.set("cursor", pagination.nextCursor!);
+                      const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+                      next.set("page", String(page + 1));
+                      router.push(`/dashboard?${next.toString()}`);
+                    }}
+                  >
+                    Next
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -12,7 +12,7 @@ export default async function DashboardRootLayout({
     redirect("/");
   }
   return (
-    <DashboardLayout user={{ name: session.name, email: session.email }}>
+    <DashboardLayout user={{ name: session.name, email: session.email, role: session.role }}>
       {children}
     </DashboardLayout>
   );

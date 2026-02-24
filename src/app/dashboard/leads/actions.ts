@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/auth";
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { parseExcelWithBreakdown } from "@/lib/leads-data";
 import { importLeadsToDb, updateLeadInDb, type LeadCreateInput } from "@/lib/leads-db";
@@ -142,4 +143,48 @@ export async function deleteLeadAction(leadId: string): Promise<{
       error: err instanceof Error ? err.message : "Delete failed",
     };
   }
+}
+
+export async function convertLeadToMerchantAction(leadId: string): Promise<
+  | { success: true; redirect: string }
+  | { success: false; error: string }
+> {
+  const session = await getServerSession();
+  requireRole(session, "EDITOR");
+
+  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  if (!lead) return { success: false, error: "Lead not found" };
+
+  const merchant = await prisma.merchant.create({
+    data: {
+      name: lead.merchantName,
+      category: lead.category || "",
+      contactName: lead.contact ?? null,
+      email: lead.email ?? null,
+      phone: lead.contact ?? null,
+      sourceFacebook: lead.fb ?? null,
+      sourceInstagram: lead.ig ?? null,
+      sourceWebsite: lead.website ?? null,
+      notes: lead.statusNotes ? `Converted from lead. ${lead.statusNotes}` : "Converted from lead.",
+      lastUpdatedById: session.userId,
+    },
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      merchantId: merchant.id,
+      userId: session.userId,
+      type: "DATA_UPDATE",
+      message: `Converted from Lead ${leadId}`,
+    },
+  });
+
+  await prisma.lead.update({
+    where: { id: leadId },
+    data: { stage: "Converted" },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/leads");
+  return { success: true, redirect: `/dashboard/merchants/${merchant.id}` };
 }

@@ -36,7 +36,7 @@ import type { LeadRow, SourceSheet } from "@/lib/leads-data";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { updateLeadAction } from "@/app/dashboard/leads/actions";
+import { updateLeadAction, convertLeadToMerchantAction } from "@/app/dashboard/leads/actions";
 import {
   Search,
   Facebook,
@@ -48,6 +48,8 @@ import {
   MapPin,
   User,
   Pencil,
+  UserPlus,
+  Loader2,
   Trash2,
 } from "lucide-react";
 
@@ -360,6 +362,7 @@ export function LeadsPipelineClient({
   const [editingLead, setEditingLead] = useState<LeadRow | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [convertLoading, setConvertLoading] = useState(false);
 
   const filtered = data.allRows.filter((r) => {
     if (sheetFilter !== "all" && r.sourceSheet !== sheetFilter) return false;
@@ -1051,6 +1054,33 @@ export function LeadsPipelineClient({
                   {selectedMerchant.category} · {selectedMerchant.sourceSheet}
                 </DialogDescription>
               </DialogHeader>
+              {"id" in selectedMerchant &&
+                (selectedMerchant.stage === "Confirmed" || selectedMerchant.stage === "Interested") && (
+                  <div className="flex justify-end">
+                    <Button
+                      disabled={convertLoading}
+                      onClick={async () => {
+                        const leadId = (selectedMerchant as LeadRow & { id: string }).id;
+                        setConvertLoading(true);
+                        const result = await convertLeadToMerchantAction(leadId);
+                        setConvertLoading(false);
+                        if (result.success && "redirect" in result) {
+                          setSelectedMerchant(null);
+                          router.push(result.redirect);
+                        } else if (!result.success && "error" in result) {
+                          setEditError(result.error ?? "Convert failed");
+                        }
+                      }}
+                    >
+                      {convertLoading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserPlus className="mr-2 h-4 w-4" />
+                      )}
+                      Convert to Merchant
+                    </Button>
+                  </div>
+                )}
               {editingLead && editingLead.id ? (
                 <LeadEditForm
                   lead={editingLead}

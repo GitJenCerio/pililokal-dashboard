@@ -1,15 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, Users, LogOut, LineChart, ShoppingBag } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/app/logout/action";
+import { DashboardNav } from "./dashboard-nav";
 
 export function DashboardLayout({
   children,
   user,
 }: {
   children: React.ReactNode;
-  user: { name: string; email: string };
+  user: { name: string; email: string; role?: string };
 }) {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -25,36 +26,7 @@ export function DashboardLayout({
             />
           </Link>
         </div>
-        <nav className="flex flex-row gap-2 p-4 md:flex-col md:gap-1">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </Link>
-          <Link
-            href="/dashboard/merchants/new"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Users className="h-4 w-4" />
-            Add Merchant
-          </Link>
-          <Link
-            href="/dashboard/leads"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <LineChart className="h-4 w-4" />
-            Leads Pipeline
-          </Link>
-          <Link
-            href="/dashboard/shopify"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            Shopify Updates
-          </Link>
-        </nav>
+        <DashboardNav userRole={user.role} />
       </aside>
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b bg-card px-4 md:h-16">

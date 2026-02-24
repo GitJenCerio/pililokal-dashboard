@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "@/lib/auth";
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
-import type { SubmissionType, SelectionMode } from "@/lib/types";
+import type { SubmissionType, SelectionMode, ShopifyStatus } from "@/lib/types";
 
 export async function saveMerchantAction(
   merchantId: string | null,
@@ -71,4 +72,43 @@ export async function saveMerchantAction(
     revalidatePath("/dashboard");
     return { redirect: `/dashboard/merchants/${merchant.id}` };
   }
+}
+
+export async function bulkUpdateStatusAction(
+  ids: string[],
+  status: ShopifyStatus
+): Promise<{ error?: string }> {
+  const session = await getServerSession();
+  if (!session) return { error: "Unauthorized" };
+  requireRole(session, "EDITOR");
+
+  if (ids.length === 0) return { error: "No merchants selected" };
+
+  for (const id of ids) {
+    await prisma.merchant.update({
+      where: { id },
+      data: { shopifyStatus: status, lastUpdatedById: session.userId },
+    });
+    await prisma.activityLog.create({
+      data: {
+        merchantId: id,
+        userId: session.userId,
+        type: "STATUS_CHANGE",
+        message: `Status updated to ${status}`,
+      },
+    });
+  }
+  revalidatePath("/dashboard");
+  return {};
+}
+
+export async function bulkDeleteAction(ids: string[]): Promise<{ error?: string }> {
+  const session = await getServerSession();
+  requireRole(session, "ADMIN");
+
+  if (ids.length === 0) return { error: "No merchants selected" };
+
+  await prisma.merchant.deleteMany({ where: { id: { in: ids } } });
+  revalidatePath("/dashboard");
+  return {};
 }

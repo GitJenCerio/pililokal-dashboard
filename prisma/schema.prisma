@@ -10,15 +10,23 @@ datasource db {
 // SQLite doesn't support enums; using String. For PostgreSQL, you could switch to native enums.
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
   passwordHash String?
-  createdAt DateTime @default(now())
+  role         String    @default("VIEWER") // ADMIN | EDITOR | VIEWER
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  passwordResetToken   String?   @unique
+  passwordResetExpiry  DateTime?
+  invitedById  String?
+  createdAt    DateTime  @default(now())
 
   activityLogs        ActivityLog[]
   uploadedMerchants   Merchant[]     @relation("UploadedBy")
   lastUpdatedMerchants Merchant[]    @relation("LastUpdatedBy")
+  invitedBy            User?         @relation("InvitedUsers", fields: [invitedById], references: [id])
+  invitedUsers         User[]        @relation("InvitedUsers")
 }
 
 model Merchant {
@@ -76,6 +84,10 @@ model Merchant {
 
   approvedProducts MerchantProductApproval[]
   activityLogs     ActivityLog[]
+
+  @@index([shopifyStatus])
+  @@index([category])
+  @@index([lastUpdatedAt])
 }
 
 model MerchantProductApproval {
@@ -134,4 +146,7 @@ model Lead {
   importedAt   DateTime @default(now())
   // Shopify upload tracking (for confirmed leads shown on Shopify Updates)
   shopifyStatus String @default("NOT_STARTED")
+
+  @@index([stage])
+  @@index([country])
 }
