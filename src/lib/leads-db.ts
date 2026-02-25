@@ -46,6 +46,7 @@ function dbToLeadRow(row: {
   stage: string | null;
   needsFollowup: boolean;
   lastActivityDates: string | null;
+  shopifyStatus: string | null;
 }): LeadRow {
   return {
     id: row.id,
@@ -130,8 +131,10 @@ function getEmptyData(): LeadsDataResult {
 
 export async function loadLeadsFromDb(): Promise<LeadsDataResult> {
   try {
-    const rows = await prisma.lead.findMany();
-  if (rows.length === 0) return getEmptyData();
+    const rows = await prisma.lead.findMany({
+      orderBy: [{ sourceSheet: "asc" }, { merchantName: "asc" }, { importedAt: "desc" }],
+    });
+    if (rows.length === 0) return getEmptyData();
 
   const allRows = rows.map(dbToLeadRow);
 

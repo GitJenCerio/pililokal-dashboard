@@ -49,6 +49,7 @@ export function UsersTable({ initialUsers }: { initialUsers: UserListItem[] }) {
   const [tempPasswordOpen, setTempPasswordOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState("");
   const [tempPasswordEmail, setTempPasswordEmail] = useState("");
+  const [inviteEmailError, setInviteEmailError] = useState<string | null>(null);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [newRole, setNewRole] = useState<string>("VIEWER");
@@ -74,6 +75,7 @@ export function UsersTable({ initialUsers }: { initialUsers: UserListItem[] }) {
       setTempPassword(result.tempPassword);
       setTempPasswordEmail(inviteForm.email);
       setTempPasswordOpen(true);
+      setInviteEmailError(result.emailError ?? null);
       setInviteForm({ name: "", email: "", role: "VIEWER" });
       setInviteOpen(false);
       refreshUsers();
@@ -91,6 +93,7 @@ export function UsersTable({ initialUsers }: { initialUsers: UserListItem[] }) {
     if (result.tempPassword) {
       setTempPassword(result.tempPassword);
       setTempPasswordEmail(user.email);
+      setInviteEmailError(null);
       setTempPasswordOpen(true);
     }
   };
@@ -258,12 +261,15 @@ export function UsersTable({ initialUsers }: { initialUsers: UserListItem[] }) {
       </Dialog>
 
       {/* Temp password dialog */}
-      <Dialog open={tempPasswordOpen} onOpenChange={setTempPasswordOpen}>
+      <Dialog open={tempPasswordOpen} onOpenChange={(open) => { setTempPasswordOpen(open); if (!open) setInviteEmailError(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Temporary Password</DialogTitle>
             <DialogDescription>
               Share this password with <strong>{tempPasswordEmail}</strong>. They should change it after first login.
+              {inviteEmailError && (
+                <span className="mt-2 block text-amber-600 dark:text-amber-400">Invite email could not be sent: {inviteEmailError}</span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3 font-mono text-sm">

@@ -15,14 +15,14 @@ export function DashboardLayout({
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="w-full border-b bg-card md:w-56 md:border-b-0 md:border-r">
-        <div className="flex h-14 items-center border-b px-4 md:h-16">
+        <div className="flex h-14 items-center justify-center border-b px-4 md:h-16">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Image
               src="/logo.png"
               alt="Pililokal"
-              width={120}
-              height={32}
-              className="h-8 w-auto object-contain"
+              width={180}
+              height={48}
+              className="h-12 w-auto object-contain"
             />
           </Link>
         </div>

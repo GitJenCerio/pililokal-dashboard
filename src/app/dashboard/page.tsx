@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 import { loadLeadsFromDb } from "@/lib/leads-db";
 import { isAddressComplete, computeCompletionPercent, needsAttention } from "@/lib/merchant-utils";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import type { ShopifyStatus, SubmissionType, SelectionMode } from "@/lib/types";
+import type { LeadRow } from "@/lib/leads-data";
 
 type MerchantRow = {
   id: string;
@@ -32,14 +35,10 @@ type MerchantRow = {
   finalReviewed: boolean;
 };
 
-const PAGE_SIZE = 25;
-
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    cursor?: string;
-    pageSize?: string;
     status?: string;
     submission?: string;
     selection?: string;
@@ -50,48 +49,9 @@ export default async function DashboardPage({
   const session = await getServerSession();
   if (!session) redirect("/");
   const params = await searchParams;
-  const cursor = params.cursor ?? null;
-  const pageSize = Math.min(100, Math.max(10, parseInt(params.pageSize ?? String(PAGE_SIZE), 10) || PAGE_SIZE));
 
-  const total = await prisma.merchant.count();
-
-  const [kpisGroups, merchants, needsAttentionMerchants] = await Promise.all([
-    prisma.merchant.groupBy({
-      by: ["shopifyStatus"],
-      _count: true,
-    }),
-    prisma.merchant.findMany({
-      take: pageSize + 1,
-      skip: cursor ? 1 : 0,
-      ...(cursor ? { cursor: { id: cursor } } : {}),
-      orderBy: { lastUpdatedAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        submissionType: true,
-        selectionMode: true,
-        shopifyStatus: true,
-        productsSubmittedCount: true,
-        productsUploadedCount: true,
-        lastUpdatedAt: true,
-        lastUpdatedById: true,
-        businessAddress: true,
-        returnAddress: true,
-        addressCountry: true,
-        addressState: true,
-        addressZip: true,
-        productsTargetCount: true,
-        variantsComplete: true,
-        pricingAdded: true,
-        inventoryAdded: true,
-        skuAdded: true,
-        imagesComplete: true,
-        finalReviewed: true,
-        lastUpdatedBy: { select: { name: true } },
-        approvedProducts: { select: { id: true } },
-      },
-    }),
+  const [leadsData, needsAttentionMerchants] = await Promise.all([
+    loadLeadsFromDb(),
     prisma.merchant.findMany({
       take: 50,
       orderBy: { lastUpdatedAt: "desc" },
@@ -117,34 +77,19 @@ export default async function DashboardPage({
     }),
   ]);
 
-  const kpisMap = Object.fromEntries(kpisGroups.map((g) => [g.shopifyStatus, g._count]));
-  const kpis = {
-    total,
-    notStarted: kpisMap.NOT_STARTED ?? 0,
-    inProgress: kpisMap.IN_PROGRESS ?? 0,
-    uploaded: kpisMap.UPLOADED ?? 0,
-    live: kpisMap.LIVE ?? 0,
+  const phConfirmed = leadsData.bySheet["PH Confirmed Merchants"] ?? [];
+  const usConfirmed = leadsData.bySheet["US Confirmed Merchants"] ?? [];
+  const confirmedLeads: (LeadRow & { id: string })[] = [...phConfirmed, ...usConfirmed].filter(
+    (r): r is LeadRow & { id: string } => typeof r.id === "string"
+  );
+
+  const shopifyKpis = {
+    total: confirmedLeads.length,
+    notStarted: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "NOT_STARTED").length,
+    inProgress: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "IN_PROGRESS").length,
+    uploaded: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "UPLOADED").length,
+    live: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "LIVE").length,
   };
-
-  const hasNext = merchants.length > pageSize;
-  const page = hasNext ? merchants.slice(0, pageSize) : merchants;
-  const nextCursor = hasNext ? page[page.length - 1]?.id : null;
-
-  const rows: (MerchantRow & { addressComplete: boolean; completionPercent: number; attention: boolean })[] =
-    page.map((m) => {
-      const addressComplete = isAddressComplete(m);
-      const completionPercent = computeCompletionPercent({
-        ...m,
-        approvedProducts: m.approvedProducts,
-      });
-      const attention = needsAttention(m, addressComplete);
-      return {
-        ...m,
-        addressComplete,
-        completionPercent,
-        attention,
-      };
-    });
 
   const needsAttentionListRaw = needsAttentionMerchants
     .map((m) => {
@@ -166,7 +111,7 @@ export default async function DashboardPage({
       category: "",
       submissionType: "MERCHANT_SELECTED" as const,
       selectionMode: "SELECTED_ONLY" as const,
-      shopifyStatus: m.shopifyStatus,
+      shopifyStatus: m.shopifyStatus as ShopifyStatus,
       productsSubmittedCount: null,
       productsUploadedCount: 0,
       lastUpdatedAt: m.lastUpdatedAt,
@@ -189,13 +134,10 @@ export default async function DashboardPage({
       attention: true,
     }));
 
-  const leadsData = await loadLeadsFromDb();
-
   return (
     <DashboardClient
-      merchants={rows}
-      kpis={kpis}
-      pagination={{ total, nextCursor, pageSize }}
+      confirmedLeads={confirmedLeads}
+      shopifyKpis={shopifyKpis}
       needsAttentionList={needsAttentionList}
       leadsData={leadsData}
       filters={{
@@ -206,8 +148,6 @@ export default async function DashboardPage({
         search: params.q,
       }}
       userRole={session.role}
-      pagination={{ total, nextCursor, pageSize }}
-      cursor={cursor}
     />
   );
 }

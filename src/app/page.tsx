@@ -15,9 +15,9 @@ export default async function HomePage() {
           <Image
             src="/logo.png"
             alt="Pililokal"
-            width={160}
-            height={48}
-            className="mb-4 h-12 w-auto object-contain"
+            width={220}
+            height={66}
+            className="mb-4 h-16 w-auto object-contain"
           />
           <h1 className="text-2xl font-bold tracking-tight text-pililokal-brown">
             Pililokal Dashboard

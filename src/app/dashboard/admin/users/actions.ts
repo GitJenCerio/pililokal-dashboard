@@ -6,6 +6,7 @@ import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { sendInviteEmail } from "@/lib/email";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -42,7 +43,7 @@ export async function createUserAction(data: {
   name: string;
   email: string;
   role: string;
-}): Promise<{ error?: string; tempPassword?: string }> {
+}): Promise<{ error?: string; tempPassword?: string; emailError?: string }> {
   const session = await getServerSession();
   requireRole(session, "ADMIN");
 
@@ -66,6 +67,17 @@ export async function createUserAction(data: {
       invitedById: session.userId,
     },
   });
+
+  const emailResult = await sendInviteEmail({
+    to: email,
+    name,
+    tempPassword,
+    role,
+  });
+  if (!emailResult.ok) {
+    revalidatePath("/dashboard/admin/users");
+    return { tempPassword, emailError: emailResult.error };
+  }
 
   revalidatePath("/dashboard/admin/users");
   return { tempPassword };

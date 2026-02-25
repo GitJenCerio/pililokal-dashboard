@@ -2,6 +2,8 @@ import { loadLeadsFromDb } from "@/lib/leads-db";
 import { LeadsPipelineClient } from "@/components/leads/leads-pipeline-client";
 import { ImportLeadsButton } from "@/components/leads/import-leads-button";
 
+export const dynamic = "force-dynamic";
+
 export default async function LeadsPipelinePage({
   searchParams,
 }: {
