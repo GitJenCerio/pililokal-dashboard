@@ -46,18 +46,8 @@ export const authOptions: NextAuthOptions = {
       }
       if (account?.provider === "google" && profile?.email) {
         const email = (profile.email as string).toLowerCase();
-        let dbUser = await prisma.user.findUnique({ where: { email } });
-        if (!dbUser) {
-          dbUser = await prisma.user.create({
-            data: {
-              email,
-              name: (profile.name as string) || profile.email,
-              role: "VIEWER",
-              isActive: true,
-            },
-          });
-        }
-        if (!dbUser.isActive) return token;
+        const dbUser = await prisma.user.findUnique({ where: { email } });
+        if (!dbUser || !dbUser.isActive) return token; // Silently reject
         token.userId = dbUser.id;
         token.email = dbUser.email;
         token.name = dbUser.name;
@@ -75,7 +65,13 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async signIn({ account, profile }) {
-      if (account?.provider === "google" && profile?.email) return true;
+      if (account?.provider === "google") {
+        const email = ((profile?.email ?? "") as string).toLowerCase();
+        if (!email) return false;
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (!existingUser) return false; // Block unknown Google accounts
+        if (!existingUser.isActive) return false; // Block deactivated accounts
+      }
       return true;
     },
   },

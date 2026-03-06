@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, LineChart, ShoppingBag, UserCog } from "lucide-react";
+import { LayoutDashboard, Users, LineChart, BarChart3, ShoppingBag, UserCog, Settings, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/dashboard/merchants/new", label: "Add Merchant", icon: Users, exact: true },
+  { href: "/dashboard/merchants", label: "Merchants", icon: Users, exact: false },
   { href: "/dashboard/leads", label: "Leads Pipeline", icon: LineChart, exact: false },
+  { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3, exact: true },
   { href: "/dashboard/shopify", label: "Shopify Updates", icon: ShoppingBag, exact: true },
   { href: "/dashboard/admin/users", label: "Users", icon: UserCog, exact: true, adminOnly: true },
+  { href: "/dashboard/admin/activity", label: "Activity Log", icon: Clock, exact: false, adminOnly: true },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, exact: true },
 ];
 
 export function DashboardNav({ userRole }: { userRole?: string }) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ import type { LeadRow, SourceSheet } from "@/lib/leads-data";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { updateLeadAction, convertLeadToMerchantAction } from "@/app/dashboard/leads/actions";
+import { updateLeadAction, convertLeadToMerchantAction, deleteLeadAction } from "@/app/dashboard/leads/actions";
 import {
   Search,
   Facebook,
@@ -75,6 +76,11 @@ function getBarColors(data: { count: number }[]): string[] {
     const ratio = (d.count - min) / range;
     return interpolateColor(BAR_LIGHT, BAR_DARK, ratio);
   });
+}
+
+function isUrl(value: string): boolean {
+  const s = value.trim();
+  return s.startsWith("http://") || s.startsWith("https://");
 }
 
 function TikTokIcon({ className }: { className?: string }) {
@@ -386,7 +392,7 @@ export function LeadsPipelineClient({
   });
 
   const dataForCharts = countryFilter !== "all" ? filtered : data.allRows;
-  const categories = [...new Set(dataForCharts.map((r) => r.category).filter(Boolean))].sort();
+  const categories = Array.from(new Set(dataForCharts.map((r) => r.category).filter(Boolean))).sort();
   const stageCounts = dataForCharts.reduce<Record<string, number>>((acc, r) => {
     const s = r.stage ?? "New / Unknown";
     acc[s] = (acc[s] ?? 0) + 1;
@@ -1014,12 +1020,18 @@ export function LeadsPipelineClient({
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <button
-                        onClick={() => setSelectedMerchant(r)}
-                        className="text-primary hover:underline"
-                      >
-                        View
-                      </button>
+                      {r.id ? (
+                        <Link href={`/dashboard/leads/${r.id}`} className="text-primary hover:underline">
+                          View
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => setSelectedMerchant(r)}
+                          className="text-primary hover:underline"
+                        >
+                          View
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -1083,13 +1095,13 @@ export function LeadsPipelineClient({
                 )}
               {editingLead && editingLead.id ? (
                 <LeadEditForm
-                  lead={editingLead}
+                  lead={editingLead as LeadRow & { id: string }}
                   onCancel={() => {
                     setEditingLead(null);
                     setEditError(null);
                   }}
                   onSaved={(updated) => {
-                    setSelectedMerchant(updated);
+                    setSelectedMerchant(updated as LeadRow & { id: string });
                     setEditingLead(null);
                     setEditError(null);
                     router.refresh();
@@ -1130,50 +1142,74 @@ export function LeadsPipelineClient({
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Social</p>
                     <div className="mt-1 flex gap-2">
-                      {selectedMerchant.fb && (
-                        <a
-                          href={selectedMerchant.fb}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <Facebook className="h-4 w-4" />
-                          Facebook <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      {selectedMerchant.ig && (
-                        <a
-                          href={selectedMerchant.ig}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <Instagram className="h-4 w-4" />
-                          Instagram <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      {selectedMerchant.tiktok && (
-                        <a
-                          href={selectedMerchant.tiktok}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <TikTokIcon className="h-4 w-4" />
-                          TikTok <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                      {selectedMerchant.website && (
-                        <a
-                          href={selectedMerchant.website}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-primary hover:underline"
-                        >
-                          <Globe className="h-4 w-4" />
-                          Website <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
+                      {selectedMerchant.fb &&
+                        (isUrl(selectedMerchant.fb) ? (
+                          <a
+                            href={selectedMerchant.fb}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Facebook className="h-4 w-4" />
+                            Facebook <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Facebook className="h-4 w-4" />
+                            {selectedMerchant.fb}
+                          </span>
+                        ))}
+                      {selectedMerchant.ig &&
+                        (isUrl(selectedMerchant.ig) ? (
+                          <a
+                            href={selectedMerchant.ig}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Instagram className="h-4 w-4" />
+                            Instagram <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Instagram className="h-4 w-4" />
+                            {selectedMerchant.ig}
+                          </span>
+                        ))}
+                      {selectedMerchant.tiktok &&
+                        (isUrl(selectedMerchant.tiktok) ? (
+                          <a
+                            href={selectedMerchant.tiktok}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <TikTokIcon className="h-4 w-4" />
+                            TikTok <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <TikTokIcon className="h-4 w-4" />
+                            {selectedMerchant.tiktok}
+                          </span>
+                        ))}
+                      {selectedMerchant.website &&
+                        (isUrl(selectedMerchant.website) ? (
+                          <a
+                            href={selectedMerchant.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Globe className="h-4 w-4" />
+                            Website <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Globe className="h-4 w-4" />
+                            {selectedMerchant.website}
+                          </span>
+                        ))}
                       {!selectedMerchant.fb &&
                         !selectedMerchant.ig &&
                         !selectedMerchant.tiktok &&

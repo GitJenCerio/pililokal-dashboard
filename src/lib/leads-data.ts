@@ -241,7 +241,7 @@ function extractDates(text: string): string[] {
     let m;
     while ((m = p.exec(text)) !== null) dates.push(m[1] ?? m[0]);
   }
-  return [...new Set(dates)];
+  return Array.from(new Set(dates));
 }
 
 function getEmptyData() {

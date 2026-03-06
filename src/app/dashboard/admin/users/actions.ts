@@ -58,13 +58,19 @@ export async function createUserAction(data: {
   const tempPassword = crypto.randomBytes(8).toString("base64").replace(/[+/=]/g, "").slice(0, 16);
   const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
 
+  // Only set invitedById if the inviter exists in DB (avoids FK violation from stale sessions)
+  const inviterExists = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true },
+  });
+
   await prisma.user.create({
     data: {
       name,
       email,
       role,
       passwordHash,
-      invitedById: session.userId,
+      ...(inviterExists ? { invitedById: session.userId } : {}),
     },
   });
 

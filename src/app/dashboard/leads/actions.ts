@@ -81,11 +81,13 @@ export async function updateLeadAction(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getServerSession();
   if (!session) return { success: false, error: "Unauthorized" };
+  requireRole(session, "EDITOR");
 
   try {
     await updateLeadInDb(leadId, data);
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");
+    revalidatePath(`/dashboard/leads/${leadId}`);
     return { success: true };
   } catch (err) {
     console.error("Update lead failed:", err);
@@ -102,6 +104,7 @@ export async function updateLeadShopifyStatusAction(
 ): Promise<{ success: boolean; error?: string }> {
   const session = await getServerSession();
   if (!session) return { success: false, error: "Unauthorized" };
+  requireRole(session, "EDITOR");
 
   try {
     await prisma.lead.update({
@@ -127,6 +130,7 @@ export async function deleteLeadAction(leadId: string): Promise<{
 }> {
   const session = await getServerSession();
   if (!session) return { success: false, error: "Unauthorized" };
+  requireRole(session, "EDITOR");
 
   try {
     await prisma.lead.delete({
@@ -134,6 +138,7 @@ export async function deleteLeadAction(leadId: string): Promise<{
     });
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard/merchants");
     revalidatePath("/dashboard/shopify");
     return { success: true };
   } catch (err) {

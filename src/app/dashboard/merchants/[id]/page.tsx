@@ -17,6 +17,7 @@ export default async function MerchantPage({ params }: { params: Promise<{ id: s
       activityLogs: {
         include: { user: { select: { name: true } } },
         orderBy: { createdAt: "desc" },
+        take: 20,
       },
     },
   });

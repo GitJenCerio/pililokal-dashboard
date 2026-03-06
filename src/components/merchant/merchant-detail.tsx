@@ -34,6 +34,11 @@ const activityTypeLabel: Record<string, string> = {
   DATA_UPDATE: "Data Update",
 };
 
+function isUrl(value: string): boolean {
+  const s = value.trim();
+  return s.startsWith("http://") || s.startsWith("https://");
+}
+
 export function MerchantDetail({
   merchant,
   addressComplete,
@@ -75,21 +80,30 @@ export function MerchantDetail({
           <div className="sm:col-span-2">
             <p className="text-sm font-medium text-muted-foreground">Source Links</p>
             <div className="mt-1 flex flex-wrap gap-2">
-              {merchant.sourceWebsite && (
-                <a href={merchant.sourceWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Website
-                </a>
-              )}
-              {merchant.sourceFacebook && (
-                <a href={merchant.sourceFacebook} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Facebook
-                </a>
-              )}
-              {merchant.sourceInstagram && (
-                <a href={merchant.sourceInstagram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  Instagram
-                </a>
-              )}
+              {merchant.sourceWebsite &&
+                (isUrl(merchant.sourceWebsite) ? (
+                  <a href={merchant.sourceWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Website
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">{merchant.sourceWebsite}</span>
+                ))}
+              {merchant.sourceFacebook &&
+                (isUrl(merchant.sourceFacebook) ? (
+                  <a href={merchant.sourceFacebook} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Facebook
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">{merchant.sourceFacebook}</span>
+                ))}
+              {merchant.sourceInstagram &&
+                (isUrl(merchant.sourceInstagram) ? (
+                  <a href={merchant.sourceInstagram} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Instagram
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">{merchant.sourceInstagram}</span>
+                ))}
               {!merchant.sourceWebsite && !merchant.sourceFacebook && !merchant.sourceInstagram && "—"}
             </div>
           </div>
@@ -112,7 +126,7 @@ export function MerchantDetail({
           <div className="flex flex-wrap items-center gap-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <UpdateStatusForm merchantId={merchant.id} currentStatus={merchant.shopifyStatus} />
+              <UpdateStatusForm merchantId={merchant.id} currentStatus={merchant.shopifyStatus as ShopifyStatus} />
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Date Uploaded</p>
@@ -188,7 +202,7 @@ export function MerchantDetail({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Submission Type</p>
-              <p>{submissionLabel[merchant.submissionType]}</p>
+              <p>{(submissionLabel as Record<string, string>)[merchant.submissionType] ?? merchant.submissionType}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Selection Mode</p>
@@ -265,36 +279,35 @@ export function MerchantDetail({
         </CardContent>
       </Card>
 
-      {/* F) Activity Log */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Activity Log</CardTitle>
-              <CardDescription>Timeline of updates</CardDescription>
-            </div>
-            <AddNoteDialog merchantId={merchant.id} merchantName={merchant.name} />
-          </div>
-        </CardHeader>
-        <CardContent>
+      {/* F) Activity History Timeline */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Activity History</h3>
+          <AddNoteDialog merchantId={merchant.id} merchantName={merchant.name} />
+        </div>
+        <div className="relative border-l-2 border-muted ml-3 space-y-4">
           {merchant.activityLogs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No activity yet.</p>
+            <p className="pl-6 text-sm text-muted-foreground">No activity recorded yet.</p>
           ) : (
-            <div className="space-y-4">
-              {merchant.activityLogs.map((log) => (
-                <div key={log.id} className="flex gap-4 border-l-2 pl-4">
-                  <div className="flex-1">
-                    <p className="text-sm">{log.message}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {log.user.name} · {activityTypeLabel[log.type] ?? log.type} · {new Date(log.createdAt).toLocaleString()}
-                    </p>
+            merchant.activityLogs.slice(0, 20).map((log) => (
+              <div key={log.id} className="relative pl-6">
+                <div className="absolute -left-[9px] top-1.5 h-3 w-3 rounded-full bg-primary border-2 border-background" />
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+                      {(activityTypeLabel as Record<string, string>)[log.type] ?? log.type}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {log.createdAt.toLocaleDateString()} · {log.user.name}
+                    </span>
                   </div>
+                  <p className="text-sm">{log.message}</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

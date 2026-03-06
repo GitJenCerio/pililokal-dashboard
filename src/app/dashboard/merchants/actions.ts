@@ -12,6 +12,7 @@ export async function saveMerchantAction(
 ) {
   const session = await getServerSession();
   if (!session) return { error: "Unauthorized" };
+  requireRole(session, "EDITOR");
 
   const name = data.name?.trim();
   if (!name) return { error: "Merchant name is required" };
@@ -84,20 +85,26 @@ export async function bulkUpdateStatusAction(
 
   if (ids.length === 0) return { error: "No merchants selected" };
 
-  for (const id of ids) {
-    await prisma.merchant.update({
-      where: { id },
-      data: { shopifyStatus: status, lastUpdatedById: session.userId },
-    });
-    await prisma.activityLog.create({
-      data: {
-        merchantId: id,
-        userId: session.userId,
-        type: "STATUS_CHANGE",
-        message: `Status updated to ${status}`,
-      },
-    });
-  }
+  // Single query to update all merchants at once
+  await prisma.merchant.updateMany({
+    where: { id: { in: ids } },
+    data: {
+      shopifyStatus: status,
+      lastUpdatedById: session.userId,
+      lastUpdatedAt: new Date(),
+    },
+  });
+
+  // Batch insert activity logs with createMany
+  await prisma.activityLog.createMany({
+    data: ids.map((id) => ({
+      merchantId: id,
+      userId: session.userId,
+      type: "STATUS_CHANGE",
+      message: `Bulk status updated to ${status}`,
+    })),
+  });
+
   revalidatePath("/dashboard");
   return {};
 }

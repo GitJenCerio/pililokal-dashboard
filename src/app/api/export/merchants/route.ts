@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!["ADMIN", "EDITOR"].includes(session.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let ids: string[];
   try {
@@ -58,7 +61,7 @@ export async function POST(request: NextRequest) {
   const buffer = exportMerchantsToExcel(rows);
   const filename = `merchants-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

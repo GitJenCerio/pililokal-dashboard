@@ -1,6 +1,7 @@
 import { loadLeadsFromDb } from "@/lib/leads-db";
 import { LeadsPipelineClient } from "@/components/leads/leads-pipeline-client";
 import { ImportLeadsButton } from "@/components/leads/import-leads-button";
+import { ExportLeadsButton } from "@/components/leads/export-leads-button";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,10 @@ export default async function LeadsPipelinePage({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Leads Pipeline</h1>
-        <ImportLeadsButton />
+        <div className="flex gap-2">
+          <ExportLeadsButton />
+          <ImportLeadsButton />
+        </div>
       </div>
       {data.allRows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">

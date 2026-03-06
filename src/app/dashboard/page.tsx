@@ -44,13 +44,18 @@ export default async function DashboardPage({
     selection?: string;
     attention?: string;
     q?: string;
+    page?: string;
   }>;
 }) {
   const session = await getServerSession();
   if (!session) redirect("/");
   const params = await searchParams;
 
-  const [leadsData, needsAttentionMerchants] = await Promise.all([
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, parseInt(params.page ?? "1", 10));
+  const skip = (page - 1) * PAGE_SIZE;
+
+  const [leadsData, needsAttentionMerchants, statusCounts] = await Promise.all([
     loadLeadsFromDb(),
     prisma.merchant.findMany({
       take: 50,
@@ -75,30 +80,59 @@ export default async function DashboardPage({
         approvedProducts: { select: { id: true } },
       },
     }),
+    prisma.merchant.groupBy({
+      by: ["shopifyStatus"],
+      _count: { id: true },
+    }),
   ]);
+
+  const kpis = {
+    total: statusCounts.reduce((sum, s) => sum + s._count.id, 0),
+    notStarted: statusCounts.find((s) => s.shopifyStatus === "NOT_STARTED")?._count.id ?? 0,
+    inProgress: statusCounts.find((s) => s.shopifyStatus === "IN_PROGRESS")?._count.id ?? 0,
+    uploaded: statusCounts.find((s) => s.shopifyStatus === "UPLOADED")?._count.id ?? 0,
+    live: statusCounts.find((s) => s.shopifyStatus === "LIVE")?._count.id ?? 0,
+  };
 
   const phConfirmed = leadsData.bySheet["PH Confirmed Merchants"] ?? [];
   const usConfirmed = leadsData.bySheet["US Confirmed Merchants"] ?? [];
-  const confirmedLeads: (LeadRow & { id: string })[] = [...phConfirmed, ...usConfirmed].filter(
+  const allConfirmedLeads: (LeadRow & { id: string })[] = [...phConfirmed, ...usConfirmed].filter(
     (r): r is LeadRow & { id: string } => typeof r.id === "string"
   );
 
+  // Apply filters server-side (same logic as client)
+  const filteredLeads = allConfirmedLeads.filter((r) => {
+    if (params.status && (r.shopifyStatus || "NOT_STARTED") !== params.status) return false;
+    if (params.q) {
+      const q = params.q.toLowerCase();
+      const name = (r.merchantName || "").toLowerCase();
+      const cat = (r.category || "").toLowerCase();
+      const prod = (r.products || "").toLowerCase();
+      if (!name.includes(q) && !cat.includes(q) && !prod.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalCount = filteredLeads.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const confirmedLeads = filteredLeads.slice(skip, skip + PAGE_SIZE);
+
   const shopifyKpis = {
-    total: confirmedLeads.length,
-    notStarted: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "NOT_STARTED").length,
-    inProgress: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "IN_PROGRESS").length,
-    uploaded: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "UPLOADED").length,
-    live: confirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "LIVE").length,
+    total: totalCount,
+    notStarted: allConfirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "NOT_STARTED").length,
+    inProgress: allConfirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "IN_PROGRESS").length,
+    uploaded: allConfirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "UPLOADED").length,
+    live: allConfirmedLeads.filter((r) => (r.shopifyStatus || "NOT_STARTED") === "LIVE").length,
   };
 
   const needsAttentionListRaw = needsAttentionMerchants
     .map((m) => {
       const addressComplete = isAddressComplete(m);
-      const completionPercent = computeCompletionPercent({
-        ...m,
-        approvedProducts: m.approvedProducts,
-      });
-      const attention = needsAttention(m, addressComplete);
+      const mWithProducts = { ...m, approvedProducts: m.approvedProducts } as unknown;
+      const completionPercent = computeCompletionPercent(
+        mWithProducts as import("@prisma/client").Merchant & { approvedProducts: { id: string }[] }
+      );
+      const attention = needsAttention(m as unknown as import("@prisma/client").Merchant, addressComplete);
       return { ...m, addressComplete, completionPercent, attention };
     })
     .filter((r) => r.attention)
@@ -148,6 +182,10 @@ export default async function DashboardPage({
         search: params.q,
       }}
       userRole={session.role}
+      currentPage={page}
+      totalPages={totalPages}
+      totalCount={totalCount}
+      merchantKpis={kpis}
     />
   );
 }

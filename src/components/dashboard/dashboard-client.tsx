@@ -88,6 +88,8 @@ const selectionLabel: Record<SelectionMode, string> = {
 
 type LeadsDataResult = import("@/lib/leads-db").LeadsDataResult;
 
+const PAGE_SIZE = 50;
+
 export function DashboardClient({
   confirmedLeads,
   shopifyKpis,
@@ -95,6 +97,10 @@ export function DashboardClient({
   leadsData,
   filters,
   userRole,
+  currentPage = 1,
+  totalPages = 1,
+  totalCount = 0,
+  merchantKpis,
 }: {
   confirmedLeads: ConfirmedLeadRow[];
   shopifyKpis: { total: number; notStarted: number; inProgress: number; uploaded: number; live: number };
@@ -108,6 +114,16 @@ export function DashboardClient({
     search?: string;
   };
   userRole?: string;
+  currentPage?: number;
+  totalPages?: number;
+  totalCount?: number;
+  merchantKpis?: {
+    total: number;
+    notStarted: number;
+    inProgress: number;
+    uploaded: number;
+    live: number;
+  };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -116,31 +132,62 @@ export function DashboardClient({
     const next = new URLSearchParams(searchParams.toString());
     if (value) next.set(key, value);
     else next.delete(key);
+    next.delete("page"); // Reset to page 1 when filtering
     router.push(`/dashboard?${next.toString()}`);
   };
 
-  const filtered = confirmedLeads.filter((r) => {
-    if (filters.status && (r.shopifyStatus || "NOT_STARTED") !== filters.status) return false;
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const name = (r.merchantName || "").toLowerCase();
-      const cat = (r.category || "").toLowerCase();
-      const prod = (r.products || "").toLowerCase();
-      if (!name.includes(q) && !cat.includes(q) && !prod.includes(q)) return false;
-    }
-    return true;
-  });
+  // Filtering is done server-side; confirmedLeads is already filtered
+  const filtered = confirmedLeads;
+
+  const kpis = merchantKpis ?? {
+    total: 0,
+    notStarted: 0,
+    inProgress: 0,
+    uploaded: 0,
+    live: 0,
+  };
 
   const shopifyStatusData = [
-    { name: "Not Started", value: shopifyKpis.notStarted, color: "#94a3b8" },
-    { name: "In Progress", value: shopifyKpis.inProgress, color: "#f59e0b" },
-    { name: "Uploaded", value: shopifyKpis.uploaded, color: "#3b82f6" },
-    { name: "Live", value: shopifyKpis.live, color: "#22c55e" },
+    { name: "Not Started", value: kpis.notStarted, color: "#94a3b8" },
+    { name: "In Progress", value: kpis.inProgress, color: "#f59e0b" },
+    { name: "Uploaded", value: kpis.uploaded, color: "#3b82f6" },
+    { name: "Live", value: kpis.live, color: "#22c55e" },
   ].filter((d) => d.value > 0);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      {/* Merchant KPI Summary Cards - from Merchant table */}
+      <div className="mb-6">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+          {[
+            { label: "Total Merchants", value: kpis.total, color: "text-foreground" },
+            { label: "Not Started", value: kpis.notStarted, color: "text-muted-foreground" },
+            { label: "In Progress", value: kpis.inProgress, color: "text-yellow-600" },
+            { label: "Uploaded", value: kpis.uploaded, color: "text-blue-600" },
+            { label: "Live", value: kpis.live, color: "text-emerald-600" },
+          ].map((kpi) => (
+            <Card key={kpi.label} className="p-4">
+              <p className="text-sm text-muted-foreground">{kpi.label}</p>
+              <p className={`text-3xl font-bold mt-1 ${kpi.color}`}>{kpi.value}</p>
+            </Card>
+          ))}
+        </div>
+        {kpis.total === 0 && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            No merchants yet.{" "}
+            <Link href="/dashboard/merchants/new" className="text-primary hover:underline">
+              Add a merchant
+            </Link>{" "}
+            or promote a lead from the{" "}
+            <Link href="/dashboard/leads" className="text-primary hover:underline">
+              Leads Pipeline
+            </Link>
+            .
+          </p>
+        )}
+      </div>
 
       {/* Leads Pipeline (primary - from DB) */}
       <Card className="overflow-hidden border-0 shadow-sm">
@@ -296,16 +343,16 @@ export function DashboardClient({
           </CardContent>
         </Card>
 
-        {/* KPI Cards - same as Shopify Updates (confirmed leads) */}
+        {/* KPI Cards - from Merchant table */}
         <div className="space-y-4 lg:col-span-2">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardDescription>Total Confirmed</CardDescription>
+                <CardDescription>Total Merchants</CardDescription>
                 <ShoppingBag className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-3xl">{shopifyKpis.total}</CardTitle>
+                <CardTitle className="text-3xl">{kpis.total}</CardTitle>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -314,7 +361,7 @@ export function DashboardClient({
                 <Clock className="h-4 w-4 text-slate-400" />
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-3xl">{shopifyKpis.notStarted}</CardTitle>
+                <CardTitle className="text-3xl">{kpis.notStarted}</CardTitle>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -323,7 +370,7 @@ export function DashboardClient({
                 <Loader2 className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-3xl">{shopifyKpis.inProgress}</CardTitle>
+                <CardTitle className="text-3xl">{kpis.inProgress}</CardTitle>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm transition-shadow hover:shadow-md">
@@ -332,7 +379,7 @@ export function DashboardClient({
                 <Upload className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-3xl">{shopifyKpis.uploaded}</CardTitle>
+                <CardTitle className="text-3xl">{kpis.uploaded}</CardTitle>
               </CardContent>
             </Card>
             <Card className="border-0 shadow-sm transition-shadow hover:shadow-md border-l-4 border-l-emerald-500">
@@ -341,7 +388,7 @@ export function DashboardClient({
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <CardTitle className="text-3xl">{shopifyKpis.live}</CardTitle>
+                <CardTitle className="text-3xl">{kpis.live}</CardTitle>
               </CardContent>
             </Card>
           </div>
@@ -475,10 +522,44 @@ export function DashboardClient({
             </table>
           </div>
           {filtered.length > 0 && (
-            <div className="border-t px-4 py-3">
+            <div className="flex items-center justify-between border-t px-4 py-3">
               <p className="text-sm text-muted-foreground">
-                Showing {filtered.length} of {confirmedLeads.length} confirmed merchants
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(currentPage * PAGE_SIZE, totalCount || filtered.length)} of {totalCount || filtered.length}
               </p>
+              <div className="flex gap-2">
+                <Link
+                  href={
+                    currentPage <= 1
+                      ? "#"
+                      : (() => {
+                          const next = new URLSearchParams(searchParams.toString());
+                          next.set("page", String(currentPage - 1));
+                          return `/dashboard?${next.toString()}`;
+                        })()
+                  }
+                  className={`rounded border px-3 py-1 text-sm ${currentPage <= 1 ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+                >
+                  Previous
+                </Link>
+                <span className="px-3 py-1 text-sm">
+                  Page {currentPage} of {Math.max(1, totalPages)}
+                </span>
+                <Link
+                  href={
+                    currentPage >= totalPages
+                      ? "#"
+                      : (() => {
+                          const next = new URLSearchParams(searchParams.toString());
+                          next.set("page", String(currentPage + 1));
+                          return `/dashboard?${next.toString()}`;
+                        })()
+                  }
+                  className={`rounded border px-3 py-1 text-sm ${currentPage >= totalPages ? "pointer-events-none opacity-50" : "hover:bg-muted"}`}
+                >
+                  Next
+                </Link>
+              </div>
             </div>
           )}
         </CardContent>

@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // SQLite doesn't support enums; using String. For PostgreSQL, you could switch to native enums.
@@ -88,6 +89,7 @@ model Merchant {
   @@index([shopifyStatus])
   @@index([category])
   @@index([lastUpdatedAt])
+  @@index([selectionConfirmed])
 }
 
 model MerchantProductApproval {
@@ -149,4 +151,7 @@ model Lead {
 
   @@index([stage])
   @@index([country])
+  @@index([stage, country])
+  @@index([shopifyStatus])
+  @@index([needsFollowup])
 }

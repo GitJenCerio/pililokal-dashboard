@@ -21,6 +21,7 @@ export async function loginAction(formData: FormData) {
   cookieStore.set(SESSION_COOKIE, sealedValue, {
     path: "/",
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: SESSION_MAX_AGE,
   });

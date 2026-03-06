@@ -141,15 +141,15 @@ export function MerchantForm({
           </div>
           <div>
             <Label htmlFor="contactName">Contact Person</Label>
-            <Input id="contactName" name="contactName" defaultValue={defaults.contactName} />
+            <Input id="contactName" name="contactName" defaultValue={defaults.contactName ?? ""} />
           </div>
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" defaultValue={defaults.email} />
+            <Input id="email" name="email" type="email" defaultValue={defaults.email ?? ""} />
           </div>
           <div>
             <Label htmlFor="phone">Phone</Label>
-            <Input id="phone" name="phone" defaultValue={merchant?.phone} />
+            <Input id="phone" name="phone" defaultValue={merchant?.phone ?? ""} />
           </div>
         </CardContent>
       </Card>
@@ -162,15 +162,15 @@ export function MerchantForm({
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div>
             <Label htmlFor="sourceWebsite">Website</Label>
-            <Input id="sourceWebsite" name="sourceWebsite" type="url" defaultValue={merchant?.sourceWebsite} />
+            <Input id="sourceWebsite" name="sourceWebsite" type="url" defaultValue={merchant?.sourceWebsite ?? ""} />
           </div>
           <div>
             <Label htmlFor="sourceFacebook">Facebook</Label>
-            <Input id="sourceFacebook" name="sourceFacebook" type="url" defaultValue={merchant?.sourceFacebook} />
+            <Input id="sourceFacebook" name="sourceFacebook" type="url" defaultValue={merchant?.sourceFacebook ?? ""} />
           </div>
           <div>
             <Label htmlFor="sourceInstagram">Instagram</Label>
-            <Input id="sourceInstagram" name="sourceInstagram" type="url" defaultValue={merchant?.sourceInstagram} />
+            <Input id="sourceInstagram" name="sourceInstagram" type="url" defaultValue={merchant?.sourceInstagram ?? ""} />
           </div>
         </CardContent>
       </Card>
@@ -232,27 +232,27 @@ export function MerchantForm({
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label htmlFor="businessAddress">Business Address</Label>
-            <Input id="businessAddress" name="businessAddress" defaultValue={merchant?.businessAddress} />
+            <Input id="businessAddress" name="businessAddress" defaultValue={merchant?.businessAddress ?? ""} />
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="warehouseAddress">Warehouse Address</Label>
-            <Input id="warehouseAddress" name="warehouseAddress" defaultValue={merchant?.warehouseAddress} />
+            <Input id="warehouseAddress" name="warehouseAddress" defaultValue={merchant?.warehouseAddress ?? ""} />
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="returnAddress">Return Address</Label>
-            <Input id="returnAddress" name="returnAddress" defaultValue={merchant?.returnAddress} />
+            <Input id="returnAddress" name="returnAddress" defaultValue={merchant?.returnAddress ?? ""} />
           </div>
           <div>
             <Label htmlFor="addressCountry">Country</Label>
-            <Input id="addressCountry" name="addressCountry" defaultValue={merchant?.addressCountry} />
+            <Input id="addressCountry" name="addressCountry" defaultValue={merchant?.addressCountry ?? ""} />
           </div>
           <div>
             <Label htmlFor="addressState">State</Label>
-            <Input id="addressState" name="addressState" defaultValue={merchant?.addressState} />
+            <Input id="addressState" name="addressState" defaultValue={merchant?.addressState ?? ""} />
           </div>
           <div>
             <Label htmlFor="addressZip">Zip</Label>
-            <Input id="addressZip" name="addressZip" defaultValue={merchant?.addressZip} />
+            <Input id="addressZip" name="addressZip" defaultValue={merchant?.addressZip ?? ""} />
           </div>
         </CardContent>
       </Card>

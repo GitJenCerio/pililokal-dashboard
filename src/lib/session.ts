@@ -1,3 +1,7 @@
+/**
+ * Note: sealSession/unsealSession used only in login/action.ts for cookie creation.
+ * All session READING is done via next-auth getServerSession() in src/lib/auth.ts.
+ */
 import { sealData, unsealData } from "iron-session";
 
 const SESSION_COOKIE = "pililokal_session";
